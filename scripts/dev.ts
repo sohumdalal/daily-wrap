@@ -19,10 +19,27 @@ const PROJECT_NAME = 'mentor';
 
 try {
   const configPath = join(homedir(), '.ast', 'project-configs.json');
-  const allConfigs = JSON.parse(readFileSync(configPath, 'utf-8'));
-  const projectConfig = allConfigs[PROJECT_NAME];
-  if (projectConfig?.variables) {
-    for (const [key, value] of Object.entries(projectConfig.variables)) {
+  const raw = JSON.parse(readFileSync(configPath, 'utf-8'));
+
+  // `ast project configure` stores configs under `projects`, keyed by the
+  // absolute project path, each entry shaped { name, vars }. Match this project
+  // by its directory first, then fall back to the `name` field. (Also support a
+  // flat name→{variables} map, in case of older/hand-written configs.)
+  const projects = raw.projects ?? raw;
+  const entry =
+    projects[process.cwd()] ??
+    Object.values(projects).find(
+      (p): p is { name?: string; vars?: Record<string, unknown> } =>
+        !!p &&
+        typeof p === 'object' &&
+        ((p as { name?: string }).name === PROJECT_NAME ||
+          (p as { name?: string }).name === `@sohumdalal/${PROJECT_NAME}`),
+    ) ??
+    projects[PROJECT_NAME];
+
+  const vars = entry?.vars ?? entry?.variables;
+  if (vars) {
+    for (const [key, value] of Object.entries(vars)) {
       if (typeof value === 'string' && !process.env[key]) {
         process.env[key] = value;
       }
