@@ -1,0 +1,27 @@
+{
+  "name": "mentor",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "Mentor — personal weekly SWE growth agent. Pulls PRs, tracks goals, LLM gives feedback.",
+  "scripts": {
+    "dev": "bun --watch scripts/dev.ts",
+    "start": "bun agent/index.ts",
+    "build:frontend": "cd frontend && bun install && bun run build",
+    "typecheck": "tsc --noEmit"
+  },
+  "main": "./agent/index.ts",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
+    "@octokit/rest": "^21.0.2",
+    "date-fns": "^4.1.0",
+    "hono": "^4.7.0",
+    "openai": "^4.73.0",
+    "postgres": "^3.4.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.1.14",
+    "typescript": "^5.9.3"
+  }
+}

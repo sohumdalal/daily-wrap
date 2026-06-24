@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=https://astropods.ai/schema/package.json
+spec: package/v1
+name: "@sohumdalal/mentor"
+
+meta:
+  visibility: private
+
+agent:
+  build:
+    context: .
+    dockerfile: Dockerfile
+  interfaces:
+    frontend: true
+  inputs:
+    - name: GITHUB_TOKEN
+      datatype: string
+      display-as: short-text
+      description: GitHub personal access token. Needs `repo` and `read:user` scopes so PR queries can include private repos.
+    - name: GITHUB_USERNAME
+      datatype: string
+      default: "sohumdalal"
+      description: GitHub username whose PR activity to track.
+    - name: LLM_PROVIDER
+      datatype: string
+      display-as: select
+      options:
+        - anthropic
+        - openai
+      default: "anthropic"
+      description: Default LLM provider for the weekly review. Can be overridden per-request from the UI.
+    - name: ANTHROPIC_MODEL
+      datatype: string
+      display-as: select
+      options:
+        - claude-opus-4-8
+        - claude-opus-4-7
+        - claude-sonnet-4-6
+        - claude-haiku-4-5
+      default: "claude-opus-4-8"
+      description: Claude model used when provider is `anthropic`.
+    - name: OPENAI_MODEL
+      datatype: string
+      default: "gpt-4o"
+      description: OpenAI model used when provider is `openai`.
+    - name: DATA_ROOT
+      datatype: string
+      default: "/data"
+      description: Filesystem path where weekly snapshots and goals are persisted.
+
+models:
+  anthropic:
+    provider: anthropic
+  openai:
+    provider: openai
+
+knowledge:
+  mentor-db:
+    provider: postgres
