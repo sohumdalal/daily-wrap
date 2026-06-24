@@ -55,20 +55,30 @@ Bun.serve({
 
 console.log(`Mentor listening on :${config.port}`);
 
-// Initialize the database in the background. Failures are logged, not fatal —
-// a slow or unreachable Postgres can't take down the served frontend.
+// Initialize the database in the background with retry/backoff. The Postgres
+// knowledge container often isn't accepting connections at the instant the
+// agent boots, so a single ping isn't enough — retry until reachable, THEN run
+// migrations and start the scheduler. (A one-shot ping leaves the schema
+// uncreated once Postgres comes up, surfacing as `relation ... does not exist`.)
+// Failures are logged, never fatal — the served frontend stays up throughout.
 void (async () => {
-  try {
-    const reachable = await ping();
-    if (!reachable) {
-      console.warn(
-        '[db] could not reach postgres on first ping — will keep retrying lazily',
-      );
+  const maxDelayMs = 30_000;
+  let delayMs = 1_000;
+  for (let attempt = 1; ; attempt++) {
+    if (await ping()) {
+      try {
+        await runMigrations();
+        startScheduler();
+        console.log('[db] connected — migrations applied, scheduler started');
+      } catch (err) {
+        console.error('[boot] database initialization failed after connect:', err);
+      }
       return;
     }
-    await runMigrations();
-    startScheduler();
-  } catch (err) {
-    console.error('[boot] database initialization failed:', err);
+    console.warn(
+      `[db] postgres unreachable (attempt ${attempt}) — retrying in ${delayMs}ms`,
+    );
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    delayMs = Math.min(delayMs * 2, maxDelayMs);
   }
 })();
