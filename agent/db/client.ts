@@ -1,26 +1,34 @@
 import postgres from 'postgres';
 
+/**
+ * Postgres connection. On Astropods the `daily-wrap-db` knowledge entry
+ * injects POSTGRES_URL (plus _HOST and _PORT); locally the discrete vars are
+ * easier to point at a Homebrew install.
+ */
+
 let _sql: postgres.Sql | null = null;
 
 function sql(): postgres.Sql {
   if (_sql) return _sql;
-  const host = process.env.POSTGRES_HOST ?? 'localhost';
-  const port = Number(process.env.POSTGRES_PORT ?? 5432);
-  const database = process.env.POSTGRES_DB ?? 'mentor';
-  const username = process.env.POSTGRES_USER ?? 'postgres';
-  const password = process.env.POSTGRES_PASSWORD ?? 'postgres';
 
-  _sql = postgres({
-    host,
-    port,
-    database,
-    username,
-    password,
+  const options = {
     max: 8,
     idle_timeout: 30,
     connect_timeout: 10,
     onnotice: () => {},
-  });
+  } as const;
+
+  const url = process.env.POSTGRES_URL;
+  _sql = url
+    ? postgres(url, options)
+    : postgres({
+        host: process.env.POSTGRES_HOST ?? 'localhost',
+        port: Number(process.env.POSTGRES_PORT ?? 5432),
+        database: process.env.POSTGRES_DB ?? 'daily_wrap',
+        username: process.env.POSTGRES_USER ?? 'postgres',
+        password: process.env.POSTGRES_PASSWORD ?? 'postgres',
+        ...options,
+      });
   return _sql;
 }
 

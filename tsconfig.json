@@ -8,6 +8,7 @@
     "allowImportingTsExtensions": true,
     "noEmit": true,
     "strict": true,
+    "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
     "verbatimModuleSyntax": true,
     "esModuleInterop": true,
@@ -15,5 +16,5 @@
     "types": ["bun-types"]
   },
   "include": ["agent/**/*", "scripts/**/*"],
-  "exclude": ["node_modules", "frontend"]
+  "exclude": ["node_modules"]
 }

@@ -1,22 +1,19 @@
 {
-  "name": "mentor",
+  "name": "daily-wrap",
   "version": "0.1.0",
   "type": "module",
   "private": true,
-  "description": "Mentor — personal weekly SWE growth agent. Pulls PRs, tracks goals, LLM gives feedback.",
+  "description": "Daily Wrap — reads your day out of Claude Code and GitHub, writes it back as five bullets, and keeps the reflection beside it.",
   "scripts": {
     "dev": "bun --watch scripts/dev.ts",
     "start": "bun agent/index.ts",
-    "build:frontend": "cd frontend && bun install && bun run build",
     "typecheck": "tsc --noEmit"
   },
   "main": "./agent/index.ts",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
     "@octokit/rest": "^21.0.2",
-    "date-fns": "^4.1.0",
     "hono": "^4.7.0",
-    "openai": "^4.73.0",
     "postgres": "^3.4.5",
     "zod": "^3.23.8"
   },

@@ -1,7 +1,5 @@
 node_modules/
-frontend/dist/
-frontend/node_modules/
-/data/
+scratch/
 .env
 .env.local
 .DS_Store

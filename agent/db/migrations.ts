@@ -12,44 +12,57 @@ const MIGRATIONS: Array<{ id: string; sql: string }> = [
         id          TEXT PRIMARY KEY,
         applied_at  TIMESTAMPTZ NOT NULL DEFAULT now()
       );
+    `,
+  },
+  {
+    // Daily Wrap replaces Mentor's weekly model. The old tables held nothing
+    // worth carrying across — goals, ISO-week snapshots and a reading log, all
+    // superseded by per-day records and period wraps.
+    id: '0002_daily_wrap',
+    sql: `
+      DROP TABLE IF EXISTS goals;
+      DROP TABLE IF EXISTS week_snapshots;
+      DROP TABLE IF EXISTS ingestion_runs;
 
-      CREATE TABLE IF NOT EXISTS goals (
-        id          UUID PRIMARY KEY,
-        user_id     TEXT NOT NULL DEFAULT 'default',
-        title       TEXT NOT NULL,
-        description TEXT,
-        metric      TEXT,
-        status      TEXT NOT NULL DEFAULT 'active',
-        created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-        updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
-      );
-      CREATE INDEX IF NOT EXISTS goals_user_status ON goals(user_id, status);
-
-      CREATE TABLE IF NOT EXISTS week_snapshots (
-        iso_week    TEXT NOT NULL,
-        user_id     TEXT NOT NULL DEFAULT 'default',
-        start_at    TIMESTAMPTZ NOT NULL,
-        end_at      TIMESTAMPTZ NOT NULL,
-        github      JSONB,
-        reflection  JSONB,
-        reading     JSONB NOT NULL DEFAULT '[]'::jsonb,
-        review      JSONB,
-        saved_at    TIMESTAMPTZ,
-        PRIMARY KEY (iso_week, user_id)
+      -- One row per civil day, holding the raw material a wrap is written from.
+      CREATE TABLE IF NOT EXISTS days (
+        day          DATE NOT NULL,
+        user_id      TEXT NOT NULL DEFAULT 'default',
+        claude       JSONB,
+        github       JSONB,
+        collected_at TIMESTAMPTZ,
+        PRIMARY KEY (day, user_id)
       );
 
-      CREATE TABLE IF NOT EXISTS ingestion_runs (
-        id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id     TEXT NOT NULL DEFAULT 'default',
-        iso_week    TEXT NOT NULL,
-        source      TEXT NOT NULL,
-        status      TEXT NOT NULL,
-        started_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-        finished_at TIMESTAMPTZ,
-        error       TEXT
+      -- What the agent wrote, for any period. "did" is what happened;
+      -- "learned" and "grew" are the point of keeping the record at all.
+      CREATE TABLE IF NOT EXISTS wraps (
+        period       TEXT NOT NULL CHECK (period IN ('day','week','month','year')),
+        key          TEXT NOT NULL,
+        user_id      TEXT NOT NULL DEFAULT 'default',
+        headline     TEXT NOT NULL DEFAULT '',
+        did          JSONB NOT NULL DEFAULT '[]'::jsonb,
+        learned      JSONB NOT NULL DEFAULT '[]'::jsonb,
+        grew         JSONB NOT NULL DEFAULT '[]'::jsonb,
+        model        TEXT,
+        generated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        PRIMARY KEY (period, key, user_id)
       );
-      CREATE INDEX IF NOT EXISTS ingestion_runs_user_week
-        ON ingestion_runs(user_id, iso_week, started_at DESC);
+      CREATE INDEX IF NOT EXISTS wraps_period_key ON wraps(user_id, period, key DESC);
+
+      -- What you wrote. Keyed the same way as wraps, so a week or a year can
+      -- carry a reflection of its own.
+      CREATE TABLE IF NOT EXISTS reflections (
+        period     TEXT NOT NULL CHECK (period IN ('day','week','month','year')),
+        key        TEXT NOT NULL,
+        user_id    TEXT NOT NULL DEFAULT 'default',
+        body       TEXT NOT NULL DEFAULT '',
+        energy     SMALLINT CHECK (energy IS NULL OR energy BETWEEN 1 AND 5),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        PRIMARY KEY (period, key, user_id)
+      );
+      CREATE INDEX IF NOT EXISTS reflections_period_key
+        ON reflections(user_id, period, key DESC);
     `,
   },
 ];
@@ -57,7 +70,7 @@ const MIGRATIONS: Array<{ id: string; sql: string }> = [
 export async function runMigrations(): Promise<void> {
   const sql = db();
 
-  // Bootstrap migrations table — needs to exist before we can query it
+  // Bootstrap the ledger before we can query which migrations have run.
   await sql.unsafe(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       id          TEXT PRIMARY KEY,
@@ -66,10 +79,10 @@ export async function runMigrations(): Promise<void> {
   `);
 
   const applied = await sql<{ id: string }[]>`SELECT id FROM schema_migrations`;
-  const appliedSet = new Set(applied.map((r) => r.id));
+  const appliedIds = new Set(applied.map((r) => r.id));
 
   for (const m of MIGRATIONS) {
-    if (appliedSet.has(m.id)) continue;
+    if (appliedIds.has(m.id)) continue;
     console.log(`[migrations] applying ${m.id}`);
     await sql.begin(async (tx) => {
       await tx.unsafe(m.sql);

@@ -1,110 +1,126 @@
 ---
-description: "Personal weekly engineering check-in. Pulls GitHub PR + code activity, tracks goals you define, captures reflection and reading, then asks Claude or OpenAI for a candid weekly review against those goals."
+description: "Reads your day out of Claude Code and GitHub, writes it back as five bullets, and keeps your reflection beside it."
 tags:
-  - "personal"
-  - "weekly-review"
-  - "github"
-  - "goals"
-  - "self-quantified"
-authors: []
+  - personal
+  - daily-review
+  - claude-code
+  - github
+  - self-quantified
+authors:
+  - name: Sohum Dalal
+    account: sohumdalal
+repository: "github:sohumdalal/daily-wrap"
 capabilities:
-  - "github-ingestion"
-  - "weekly-snapshot"
-  - "goal-tracking"
-  - "llm-review"
+  - Reads a day out of your local Claude Code transcripts
+  - Pulls the day's commits, pull requests and reviews from GitHub
+  - Writes the day as five bullets plus what you learned and where you grew
+  - Rolls days up into weekly, monthly and yearly wraps of growth
+  - Keeps your own written reflection alongside every wrap
 integrations:
-  - "anthropic"
-  - "openai"
-  - "github"
+  - GitHub
+  - Anthropic
 ---
 
-<h1 align="center">Mentor</h1>
+<h1 align="center">Daily Wrap</h1>
 
-<p align="center"><em>A weekly engineering log — field notes from the desk.</em></p>
+<p align="center"><em>What you did today, what you learned, where you grew.</em></p>
 
-Mentor ingests your GitHub activity each ISO week (PRs opened, merged, reviewed; repos touched; languages; net lines), holds the goals you've named, captures a short reflection (energy, wins, blockers, surprises) and the things you've read, then asks an LLM to grade the week against your goals and tell you what to adjust.
+Daily Wrap keeps a record of your days so the year adds up to something you can
+read. Each day it reads what you actually did — your Claude Code sessions and
+your GitHub activity — and writes it back as at most five bullets, plus what you
+learned and where you grew. You write the reflection. Those two halves are then
+rolled up into weekly, monthly and yearly wraps.
+
+The point is the rollups. A single day's bullets are mildly interesting; a year
+of them, read back, is the only honest record of how you changed.
+
+## The screen
+
+One screen, mostly empty. The day's headline is the only thing above the fold.
+
+- **Day** — the day in numbers, then what you did / learned / grew, then your reflection
+- **Week / Month / Year** — the same shape, written from the days beneath it, which it lists
+
+Keys: `←` `→` move, `D` `W` `M` `Y` switch period, `⏎` wrap, `R` jump to the reflection.
+
+Nothing runs in the background. A wrap is written when you ask for one, which
+also re-reads both sources first — so wrapping mid-afternoon and again at
+midnight both give you the day as it stands.
+
+## Where the day comes from
+
+**Claude Code** — read from your Claude home (`~/.claude`, or `CLAUDE_HOME`):
+
+- `history.jsonl` — every prompt you typed, which is the clearest record of intent
+- `projects/**/*.jsonl` — per-session transcripts: Claude's own session titles, the
+  repo and branch, tool calls, models, active time, and PRs opened from the session
+
+Read-only, and only within the requested day. Files untouched since before the
+day began are skipped, which is what keeps a 60MB+ transcript tree fast.
+
+**GitHub** — commits authored, PRs opened, PRs merged, and PRs you reviewed for
+someone else. Every query is bounded with the day's real UTC offset, so a local
+day is a local day.
+
+Day boundaries come from `TIMEZONE`, never from UTC.
+
+## What it writes
+
+```
+headline   at most eight words
+did        3–5 bullets, most consequential first
+learned    0–3 bullets — a mechanism, a constraint, a root cause
+grew       0–2 bullets — a change in how you work, judge or decide
+```
+
+`learned` and `grew` are allowed to come back empty, and often should. A day of
+mechanical work ought to read as one — inventing growth would make the rollups
+worthless, because they are built by reading these fields back.
+
+Your reflection outranks the machine record. When you've written one, it is
+treated as authoritative for what you learned and how you grew; the commits and
+transcripts are only evidence.
 
 ## Setup
 
-After deploying, visit your agent's URL.
+Deployed, Astropods prompts for everything declared in `astropods.yml`:
 
-### 1. Provide a GitHub token
-
-In the agent's configuration, set:
-
-- **GITHUB_TOKEN** — a personal access token with `repo` and `read:user` scopes (private repos count toward your weekly PR totals)
-- **GITHUB_USERNAME** — your GitHub handle
-
-A background job will pull your activity for the current and most recently completed ISO week within a few seconds of the token landing, then refresh every six hours.
-
-### 2. Pick an LLM provider
-
-Set at least one of:
-
-- **ANTHROPIC_API_KEY** — to use Claude for the weekly review
-- **OPENAI_API_KEY** — to use GPT for the weekly review
-
-You can switch between providers per-review from the UI; **LLM_PROVIDER** controls the default.
-
-### 3. Name your goals
-
-Open the dashboard and add a few goals on the masthead — title, optional description, and an optional metric (e.g. *"ship 2 PRs/wk"*, *"finish 1 systems-design chapter/wk"*). Goals carry a status — `active`, `paused`, `achieved`, or `archived` — and only `active` goals are scored.
-
-## Usage
-
-### The weekly dashboard
-
-The page is one long broadsheet edition with six sections:
-
-- **The Ledger** — totals and lists for PRs opened, merged, and reviewed this week
-- **In Circulation** — repositories touched, language mix, net lines added/removed
-- **The Masthead** — goals you've named, with add/edit/delete and status switching
-- **Letters Home** — the week's reflection (energy 1–5, wins, blockers, surprises, notes)
-- **The Reading Room** — articles, docs, talks you logged this week with one-line takeaways
-- **The Editorial** — the LLM's reading of the week against your goals
-
-### Generating a weekly review
-
-Open **The Editorial**, toggle between **Claude** and **OpenAI**, and press **Compose this week's editorial**. The model receives your active goals, the current week's snapshot, and the previous four weeks for trend context. It returns:
-
-- A 1–5 score and one-paragraph rationale for every active goal
-- 2–3 things you're holding (strengths)
-- 2–3 concrete adjustments
-- A single-sentence focus for the week to come
-- A 200–400 word markdown body
-
-You can recompose at any time. Each generation overwrites the previous review for that week.
-
-### Browsing prior weeks
-
-Use the **Prev / Next** controls and the week selector at the top of the page. Past weeks are read-only snapshots — the reflection, reading log, and editorial as you filed them.
-
-### Background ingestion
-
-A scheduler runs every six hours and pulls your GitHub activity for the current ISO week. It also fills in last week's snapshot if no successful ingestion was recorded after the week boundary. The **Wire Room** strip at the top of the page shows when the last successful pull happened.
-
-## Configuration
-
-| Setting | Default | Description |
+| Input | Default | Description |
 |---|---|---|
-| `GITHUB_TOKEN` | — | PAT with `repo` + `read:user` scopes |
-| `GITHUB_USERNAME` | `sohumdalal` | The handle whose PR activity to track |
-| `LLM_PROVIDER` | `anthropic` | Default provider for new reviews; switchable per-review in the UI |
-| `ANTHROPIC_MODEL` | `claude-opus-4-8` | Claude model used when provider is `anthropic` |
-| `OPENAI_MODEL` | `gpt-4o` | OpenAI model used when provider is `openai` |
-| `DATA_ROOT` | `/data` | Filesystem path for any future file-based exports (data lives in Postgres) |
+| `ANTHROPIC_API_KEY` | — | Writes the wraps (from the `models.anthropic` entry) |
+| `ANTHROPIC_MODEL` | `claude-sonnet-5` | Which Claude writes them |
+| `GITHUB_TOKEN` | — | `repo` + `read:user`, so private repos count (from `integrations.github`) |
+| `GITHUB_USERNAME` | `sohumdalal` | Whose commits and PRs to read |
+| `TIMEZONE` | `America/New_York` | Where one day ends and the next begins |
+| `CLAUDE_HOME` | `~/.claude` | Claude Code home to read |
+
+Postgres comes from the `knowledge.daily-wrap-db` entry — no configuration.
+
+<blockquote>
+Claude Code transcripts live on the machine you code on. Deployed, the agent has
+no <code>~/.claude</code> to read, so the Claude half of each day will be empty
+and wraps will be written from GitHub alone. Run it locally to get the full day.
+</blockquote>
 
 ## Local development
 
-```bash
-# One-time
-createdb mentor
-bun install
-cd frontend && bun install && cd ..
+Requires Bun and Postgres on `localhost:5432`.
 
-# Run
-bun run dev                  # agent on :3002 (auto-migrates on boot)
-cd frontend && bun run dev   # vite on :5173 with HMR
+```bash
+createdb daily_wrap
+bun install
+bun run dev          # http://localhost:3002, migrations run on boot
 ```
 
-Open <http://localhost:5173>. The dev script auto-loads secrets from `~/.ast/project-configs.json` if you've configured them for this agent via the Astropods CLI; otherwise set them in your shell.
+`scripts/dev.ts` loads secrets from `~/.ast/project-configs.json` if you've run
+`ast project configure`, and takes a live GitHub token from `gh auth token`.
+Otherwise copy `.env.example`.
+
+## Design
+
+The screen follows the Ferrari design system in `DESIGN.md`: near-black canvas,
+Rosso Corsa used scarcely, Inter at 500, sharp corners, hairlines instead of
+shadows. Ferrari's signature is a full-bleed cinematic photograph; there is no
+photography here, so the day's headline takes that role — display-mega on the
+bare canvas with nothing competing. The accent appears twice: the wordmark rule
+and the marker on **where you grew**, which is the reason the record is kept.

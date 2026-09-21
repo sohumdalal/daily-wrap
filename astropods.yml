@@ -1,58 +1,63 @@
-# yaml-language-server: $schema=https://astropods.ai/schema/package.json
-spec: package/v1
-name: "@sohumdalal/mentor"
-
-meta:
-  visibility: private
+# yaml-language-server: $schema=https://astropods.com/schema/package.json
+spec: blueprint/v1
+name: "@sohumdalal/daily-wrap"
 
 agent:
   build:
     context: .
     dockerfile: Dockerfile
+  # Daily Wrap serves its own single-screen UI. No chat sidecar — declaring
+  # `interfaces` at all flips messaging to false, so it is spelled out here.
   interfaces:
     frontend: true
+    messaging: false
+  healthcheck:
+    path: /healthz
   inputs:
-    - name: GITHUB_TOKEN
-      datatype: string
-      display-as: short-text
-      description: GitHub personal access token. Needs `repo` and `read:user` scopes so PR queries can include private repos.
     - name: GITHUB_USERNAME
       datatype: string
       default: "sohumdalal"
-      description: GitHub username whose PR activity to track.
-    - name: LLM_PROVIDER
+      description: GitHub handle whose commits, PRs and reviews make up the day.
+    - name: TIMEZONE
       datatype: string
-      display-as: select
-      options:
-        - anthropic
-        - openai
-      default: "anthropic"
-      description: Default LLM provider for the weekly review. Can be overridden per-request from the UI.
+      default: "America/New_York"
+      description: >-
+        IANA timezone that defines where one day ends and the next begins.
+        Everything — Claude transcripts, GitHub queries, rollup boundaries — is
+        bucketed against this, not UTC.
     - name: ANTHROPIC_MODEL
       datatype: string
       display-as: select
       options:
-        - claude-opus-4-8
-        - claude-opus-4-7
-        - claude-sonnet-4-6
+        - claude-opus-5
+        - claude-sonnet-5
         - claude-haiku-4-5
-      default: "claude-opus-4-8"
-      description: Claude model used when provider is `anthropic`.
-    - name: OPENAI_MODEL
+      default: "claude-sonnet-5"
+      description: Claude model that writes the wraps.
+    - name: CLAUDE_HOME
       datatype: string
-      default: "gpt-4o"
-      description: OpenAI model used when provider is `openai`.
-    - name: DATA_ROOT
-      datatype: string
-      default: "/data"
-      description: Filesystem path where weekly snapshots and goals are persisted.
+      optional: true
+      description: >-
+        Claude Code home directory to read the day out of. Defaults to
+        `~/.claude`. The agent only ever reads from it.
 
 models:
+  # → ANTHROPIC_API_KEY
   anthropic:
     provider: anthropic
-  openai:
-    provider: openai
+
+integrations:
+  # → GITHUB_TOKEN
+  github:
+    provider: github
 
 knowledge:
-  mentor-db:
+  # → POSTGRES_HOST / POSTGRES_PORT / POSTGRES_URL
+  daily-wrap-db:
     provider: postgres
+
+dev:
+  interfaces:
+    frontend:
+      port: 3002
+  command: bun --watch run start

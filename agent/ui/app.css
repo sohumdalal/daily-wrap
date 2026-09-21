@@ -1,0 +1,547 @@
+/*
+ * Daily Wrap — Ferrari design system (see DESIGN.md).
+ *
+ * The brand's primary depth treatment is a full-bleed cinematic photograph.
+ * There is no photography here, so the day's headline takes that role: it runs
+ * at display-mega on the bare near-black canvas with nothing competing for the
+ * top of the viewport. Rosso Corsa stays scarce — the one CTA, and the marker
+ * on "where you grew", which is the whole point of keeping the record.
+ */
+
+:root {
+  /* Colors */
+  --primary: #da291c;
+  --primary-active: #b01e0a;
+  --ink: #ffffff;
+  --body: #969696;
+  --muted: #666666;
+  --muted-soft: #8f8f8f;
+  --hairline: #303030;
+  --canvas: #181818;
+  --canvas-elevated: #303030;
+  --on-primary: #ffffff;
+  --semantic-warning: #f13a2c;
+  --focus: #fff200;
+
+  /* Spacing ladder */
+  --xxxs: 4px;
+  --xxs: 8px;
+  --xs: 16px;
+  --sm: 24px;
+  --md: 32px;
+  --lg: 48px;
+  --xl: 64px;
+  --xxl: 96px;
+  --super: 128px;
+
+  /* Sharp by default. 4px is for form inputs, the pill for badges only. */
+  --r-none: 0px;
+  --r-sm: 4px;
+  --r-full: 9999px;
+
+  --sans: 'Inter', -apple-system, system-ui, sans-serif;
+
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--canvas);
+}
+
+body {
+  margin: 0;
+  background: var(--canvas);
+  color: var(--body);
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* ── Type roles ─────────────────────────────────────────────────────────── */
+
+.display-mega {
+  font-size: 80px;
+  font-weight: 500; /* display weight stays at 500 — never bold */
+  line-height: 1.05;
+  letter-spacing: -1.6px;
+  color: var(--ink);
+  margin: 0;
+}
+
+.display-lg {
+  font-size: 36px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.36px;
+  color: var(--ink);
+  margin: 0;
+}
+
+.label {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.nav-link {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.65px;
+  text-transform: uppercase;
+}
+
+.caption {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+/* ── Chrome ─────────────────────────────────────────────────────────────── */
+
+.topnav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sm);
+  height: 64px;
+  padding: 0 var(--lg);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.wordmark {
+  display: flex;
+  align-items: center;
+  gap: var(--xxs);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.65px;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+/* The one mark that carries the accent, at the size of a Cavallino. */
+.wordmark::before {
+  content: '';
+  width: 3px;
+  height: 14px;
+  background: var(--primary);
+}
+
+.periods {
+  display: flex;
+  gap: var(--xs);
+}
+
+.periods button {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: var(--xxs) 0;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.65px;
+  text-transform: uppercase;
+  border-bottom: 1px solid transparent;
+}
+
+.periods button[aria-current='true'] {
+  color: var(--ink);
+  border-bottom-color: var(--primary);
+}
+
+.shell {
+  max-width: 840px;
+  margin: 0 auto;
+  padding: var(--xxl) var(--lg) var(--super);
+}
+
+/* ── The hero: the day itself ───────────────────────────────────────────── */
+
+.hero {
+  min-height: 46vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding-bottom: var(--xl);
+}
+
+.hero-date {
+  display: flex;
+  align-items: center;
+  gap: var(--xs);
+  margin-bottom: var(--sm);
+}
+
+.stepper {
+  display: flex;
+  gap: var(--xxxs);
+}
+
+.stepper button {
+  appearance: none;
+  background: none;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-none);
+  width: 28px;
+  height: 28px;
+  color: var(--body);
+  cursor: pointer;
+  font: inherit;
+  line-height: 1;
+}
+
+.stepper button:disabled {
+  color: var(--hairline);
+  cursor: default;
+}
+
+/* The empty state is the blank screen. One hairline sentence, nothing else. */
+.hero-empty {
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0.195px;
+  color: var(--muted);
+  margin: 0;
+}
+
+/* ── Spec cells — the day in numbers ────────────────────────────────────── */
+
+.rule {
+  height: 1px;
+  background: var(--hairline);
+  border: 0;
+  margin: 0;
+}
+
+.specs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sm);
+  padding: var(--md) 0 var(--lg);
+}
+
+.spec-value {
+  font-size: 56px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -1.12px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.spec-value.dim {
+  color: var(--hairline);
+}
+
+.spec-label {
+  margin-top: var(--xxs);
+}
+
+/* ── The wrap ───────────────────────────────────────────────────────────── */
+
+.section {
+  padding: var(--lg) 0 0;
+}
+
+.section-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--xs);
+  margin-bottom: var(--sm);
+}
+
+.bullets {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.bullets li {
+  position: relative;
+  padding: 0 0 0 var(--sm);
+  margin-bottom: var(--xs);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.08px;
+  color: var(--ink);
+}
+
+/* Hairline markers, not bullet glyphs — the brand divides with 1px rules. */
+.bullets li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.45em;
+  width: 10px;
+  height: 1px;
+  background: var(--hairline);
+}
+
+.bullets.quiet li {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--body);
+}
+
+/* Growth is the reason the record is kept. It gets the accent. */
+.section.growth .label {
+  color: var(--primary);
+}
+
+.section.growth .bullets li::before {
+  background: var(--primary);
+  width: 10px;
+  height: 2px;
+}
+
+.covered {
+  display: flex;
+  flex-direction: column;
+}
+
+.covered a {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: var(--xs);
+  align-items: baseline;
+  padding: var(--xs) 0;
+  border-top: 1px solid var(--hairline);
+  color: var(--body);
+  text-decoration: none;
+}
+
+.covered a:last-child {
+  border-bottom: 1px solid var(--hairline);
+}
+
+.covered .when {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.covered .what {
+  color: var(--ink);
+}
+
+/* ── Reflection ─────────────────────────────────────────────────────────── */
+
+textarea {
+  display: block;
+  width: 100%;
+  min-height: 132px;
+  resize: vertical;
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  padding: var(--xs);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+textarea::placeholder {
+  color: var(--muted);
+}
+
+.energy {
+  display: flex;
+  align-items: center;
+  gap: var(--xs);
+  margin-top: var(--xs);
+}
+
+.energy-scale {
+  display: flex;
+  gap: var(--xxxs);
+}
+
+.energy-scale button {
+  appearance: none;
+  width: 32px;
+  height: 32px;
+  background: none;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-none);
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.energy-scale button[aria-pressed='true'] {
+  background: var(--canvas-elevated);
+  border-color: var(--muted);
+  color: var(--ink);
+}
+
+/* ── Actions ────────────────────────────────────────────────────────────── */
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--xs);
+  padding-top: var(--lg);
+}
+
+.btn {
+  appearance: none;
+  height: 48px;
+  padding: 14px var(--md);
+  border: 0;
+  border-radius: var(--r-none); /* sharp corners are the brand button */
+  background: var(--primary);
+  color: var(--on-primary);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.btn:active {
+  background: var(--primary-active);
+}
+
+.btn[disabled] {
+  background: var(--canvas-elevated);
+  color: var(--muted-soft);
+  cursor: default;
+}
+
+.btn.outline {
+  background: none;
+  border: 1px solid var(--ink);
+  color: var(--ink);
+  padding: 13px 31px;
+}
+
+.btn.outline[disabled] {
+  border-color: var(--hairline);
+  color: var(--muted-soft);
+}
+
+.badge {
+  display: inline-block;
+  padding: var(--xxxs) 12px;
+  border-radius: var(--r-full); /* the only pill in the system */
+  background: var(--canvas-elevated);
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+}
+
+.note {
+  padding-top: var(--sm);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.note.warn {
+  color: var(--semantic-warning);
+}
+
+.keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--xs);
+  padding-top: var(--xxl);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.keys kbd {
+  font: inherit;
+  color: var(--body);
+  border: 1px solid var(--hairline);
+  padding: 1px 5px;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/* Work in progress reads as a dimming of the whole field, not a spinner. */
+.busy {
+  opacity: 0.45;
+  transition: opacity 120ms linear;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+
+@media (max-width: 1024px) {
+  .display-mega {
+    font-size: 56px;
+    letter-spacing: -1.12px;
+  }
+}
+
+@media (max-width: 640px) {
+  .topnav {
+    padding: 0 var(--xs);
+  }
+
+  .shell {
+    padding: var(--lg) var(--xs) var(--xl);
+  }
+
+  .display-mega {
+    font-size: 32px;
+    letter-spacing: -0.32px;
+  }
+
+  .hero {
+    min-height: auto;
+    padding-bottom: var(--md);
+  }
+
+  .specs {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .spec-value {
+    font-size: 36px;
+    letter-spacing: -0.36px;
+  }
+
+  .covered a {
+    grid-template-columns: 1fr;
+    gap: var(--xxxs);
+  }
+
+  .actions {
+    flex-wrap: wrap;
+  }
+}

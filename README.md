@@ -1,117 +1,124 @@
----
-description: "Personal weekly engineering check-in. Pulls GitHub PRs and code activity, tracks goals, and asks an LLM for a candid weekly review."
-tags:
-  - "personal"
-  - "weekly-review"
-  - "github"
-  - "goals"
-authors: []
-capabilities:
-  - "weekly-snapshot"
-  - "goal-tracking"
-  - "llm-review"
-integrations:
-  - "anthropic"
-  - "openai"
-  - "github"
----
+# Daily Wrap
 
-# Mentor
+An Astropods agent that keeps a record of your days so the year adds up to
+something you can read.
 
-A personal Astropods agent for tracking engineering growth week-over-week. Each ISO week, it pulls GitHub activity, captures self-reflection, lets you define goals, and asks Claude or GPT for a candid weekly review against those goals.
+Each day it reads what you actually did — your Claude Code sessions and your
+GitHub activity — and writes it back as at most five bullets, plus what you
+learned and where you grew. You write the reflection. Both halves roll up into
+weekly, monthly and yearly wraps.
 
-## What it does
+The rollups are the point. A single day's bullets are mildly interesting; a year
+of them is the only honest record of how you changed.
 
-- **The Ledger** — PRs opened, merged, and reviewed in the current week
-- **In Circulation** — repos touched, languages used, lines added/removed
-- **The Masthead** — goals you define (title, description, metric, status)
-- **Letters Home** — weekly reflection (energy 1–5, wins, blockers, surprises)
-- **The Reading Room** — articles, docs, and talks you logged
-- **The Editorial** — Claude or OpenAI grades each goal, calls out strengths and adjustments, and sets a focus for next week
+## What it reads
 
-A background scheduler refreshes GitHub data every 6 hours so the dashboard is always fresh when you open it.
+**Claude Code**, from `~/.claude` (read-only, one day at a time):
+
+| Source | What it gives |
+|---|---|
+| `history.jsonl` | Every prompt you typed — the clearest record of intent |
+| `projects/**/*.jsonl` | Session titles Claude wrote, repo + branch, tool calls, models, active minutes, PRs opened |
+
+**GitHub**: commits authored, PRs opened, PRs merged, PRs reviewed for others —
+each query bounded with the day's real UTC offset so a local day is a local day.
+
+## What it writes
+
+```
+headline   at most eight words
+did        3–5 bullets, most consequential first
+learned    0–3 bullets — a mechanism, a constraint, a root cause
+grew       0–2 bullets — a change in how you work, judge or decide
+```
+
+`learned` and `grew` may be empty, and often should be. A mechanical day should
+read as one; manufactured insight would make the rollups worthless, since they
+are written by reading these fields back across days.
+
+Your own reflection outranks the machine record — when you've written one it is
+authoritative for what you learned, and the commits are only evidence.
 
 ## Architecture
 
-Single container, three services:
+One container. No build step.
 
-- **Agent** — Hono web server on Bun (`agent/`). Serves the API and the built React frontend.
-- **Frontend** — React 19 + Vite + Tailwind 4 SPA (`frontend/`).
-- **Database** — Postgres for goals, week snapshots, and ingestion run history.
-
-All weekly data is keyed by ISO week (`2026-W25`) and tagged with a `user_id` (currently `default`) so multi-tenancy can be added later without a migration.
-
-## Deploy on Astropods
-
-```bash
-ast push
+```
+daily-wrap/
+├── astropods.yml       blueprint/v1 — frontend agent, github + anthropic + postgres
+├── AGENT.md            agent card (registry-facing)
+├── DESIGN.md           Ferrari design system the screen follows
+├── Dockerfile          single stage; bun, port 80
+└── agent/
+    ├── index.ts        Bun.serve + Hono; binds before touching the database
+    ├── config.ts       env → config, and an honest readiness report
+    ├── time.ts         civil-date math in a fixed IANA timezone (DST-aware)
+    ├── types.ts
+    ├── store.ts        every SQL statement in the agent
+    ├── llm.ts          one structured Claude call, retried once on a parse failure
+    ├── wrap.ts         the prompts, and the shape of a wrap
+    ├── routes.ts       the whole API — eight routes
+    ├── db/             postgres client + append-only migrations
+    ├── sources/
+    │   ├── claude.ts   a day out of the Claude Code transcripts
+    │   └── github.ts   a day out of the GitHub API
+    └── ui/             index.html + app.css + app.js — no framework, no bundler
 ```
 
-After deploy, open the agent URL and fill in the inputs declared in `astropods.yml`:
+Days, wraps and reflections are all keyed by `(period, key)` — `day`/`week`/
+`month`/`year` against `2026-09-21`/`2026-W39`/`2026-09`/`2026` — so a week or
+a year can carry a reflection of its own, and a rollup is just a wrap written
+from the wraps beneath it.
 
-| Input | Description |
+## API
+
+| Route | Does |
 |---|---|
-| `GITHUB_TOKEN` | PAT with `repo` + `read:user` scopes |
-| `GITHUB_USERNAME` | Your handle |
-| `LLM_PROVIDER` | `anthropic` or `openai` (default for new reviews) |
-| `ANTHROPIC_MODEL` | Claude model (Opus 4.8 default) |
-| `OPENAI_MODEL` | OpenAI model (gpt-4o default) |
-| `DATA_ROOT` | Filesystem path for the volume (default `/data`) |
-
-`ANTHROPIC_API_KEY` and `OPENAI_API_KEY` are pulled from the `models:` block — Astropods injects them automatically.
+| `GET /healthz` | Liveness, for the platform healthcheck |
+| `GET /api/state` | What's configured, and today's date in `TIMEZONE` |
+| `GET /api/view/:period/:key` | Everything the screen needs for one key |
+| `POST /api/view/day/:day/collect` | Re-read Claude and GitHub for that day |
+| `POST /api/view/:period/:key/wrap` | Write the wrap (a day re-collects first) |
+| `PUT /api/reflection/:period/:key` | Save the reflection and energy |
+| `GET /api/index/:period` | Keys that have a wrap or a reflection on them |
 
 ## Local development
 
 Requires Bun and Postgres on `localhost:5432`.
 
 ```bash
-# One-time
-createdb mentor
+createdb daily_wrap
 bun install
-cd frontend && bun install && cd ..
-
-# Run
-bun run dev                  # agent on :3002 (auto-migrates on boot)
-cd frontend && bun run dev   # vite on :5173 with HMR
+bun run dev          # http://localhost:3002, migrations run on boot
+bun run typecheck
 ```
 
-Open <http://localhost:5173>.
+`scripts/dev.ts` loads secrets from `~/.ast/project-configs.json` if present and
+takes a live GitHub token from `gh auth token` — a stale token in the ast bag
+would otherwise shadow it. Otherwise copy `.env.example`.
 
-The dev script (`scripts/dev.ts`) auto-loads secrets from `~/.ast/project-configs.json` if present, so once you've run `ast project ...` for this agent locally you don't need a `.env`. As a fallback, copy `.env.example` to `.env` and source it.
+## Deploy
 
-## Project layout
-
+```bash
+ast spec validate
+ast blueprint push daily-wrap
+ast blueprint deploy daily-wrap --var ANTHROPIC_API_KEY=@ANTHROPIC_API_KEY
 ```
-mentor/
-├── agent/
-│   ├── index.ts            # Hono entry point
-│   ├── config.ts           # Env → config
-│   ├── data/               # Domain ops (goals, weeks, dates)
-│   ├── db/                 # Postgres client + migrations + ingestion log
-│   ├── github/             # Octokit client (PR + repo + language queries)
-│   ├── jobs/               # Scheduler + ingestion runner
-│   ├── llm/                # Claude + OpenAI adapter, weekly-review prompt
-│   └── routes/             # /api/* Hono routes
-├── frontend/
-│   └── src/
-│       ├── App.tsx
-│       ├── api.ts          # Typed fetch client
-│       ├── styles.css      # Tailwind 4 + @theme tokens
-│       └── components/     # Masthead, Ledger, Circulation, Goals, Reflection, ReadingRoom, Editorial
-├── scripts/dev.ts          # Local dev launcher
-├── astropods.yml           # Astropods deployment spec
-├── Dockerfile              # Multi-stage production build
-└── package.json
-```
+
+`agent.interfaces.frontend: true` means the platform routes a dedicated hostname
+straight to the container on port 80 and skips the built-in chat UI; OIDC
+sign-in still sits at the front door.
+
+> Claude Code transcripts live on the machine you code on. A deployed agent has
+> no `~/.claude` to read, so the Claude half of each day comes back empty and
+> wraps are written from GitHub alone. Run it locally for the full day.
 
 ## Status
 
-- ✅ GitHub ingestion (PRs opened / merged / reviewed + repos + languages)
-- ✅ Goals CRUD with active/paused/achieved/archived statuses
-- ✅ Weekly reflection (energy + wins + blockers + surprises + notes)
-- ✅ Reading log
-- ✅ Weekly LLM review with per-goal scoring, strengths, adjustments, focus
-- ✅ Background scheduler (every 6h) with ingestion run history
-- ⬜ Slack mentions → task extraction
-- ⬜ Codex / Claude Code usage analysis from local transcripts
-- ⬜ Prompting-quality analysis (comparing your prompts week-over-week)
+- ✅ Claude Code day: sessions, titles, prompts, tools, models, active time, PR links
+- ✅ GitHub day: commits, PRs opened / merged / reviewed, timezone-correct windows
+- ✅ Daily wrap — headline, did, learned, grew
+- ✅ Reflection with energy, on any period
+- ✅ Weekly / monthly / yearly rollups written from the days beneath them
+- ⬜ Growth trendlines across periods
+- ⬜ A year view worth printing

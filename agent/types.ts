@@ -1,58 +1,92 @@
-export type Goal = {
+import type { Period } from './time.ts';
+
+// ── Claude Code activity ───────────────────────────────────────────────────
+
+export type ClaudeSession = {
   id: string;
-  title: string;
-  description?: string;
-  metric?: string;
-  status: 'active' | 'paused' | 'achieved' | 'archived';
-  createdAt: string;
-  updatedAt: string;
+  /** Claude's own generated title for the session — the best one-line summary. */
+  title: string | null;
+  /** Repo or directory the session ran in, shortened to a basename. */
+  project: string | null;
+  branches: string[];
+  startedAt: string;
+  endedAt: string;
+  /** Summed turn durations, not wall-clock between first and last message. */
+  activeMinutes: number;
+  prompts: string[];
+  models: string[];
+  tools: Array<{ name: string; count: number }>;
 };
 
-export type Reflection = {
-  energy: number; // 1-5
-  wins: string;
-  blockers: string;
-  surprises: string;
-  notes?: string;
+export type ClaudePrompt = {
+  at: string;
+  project: string | null;
+  text: string;
 };
 
-export type ReadingEntry = {
-  id: string;
-  title: string;
-  url?: string;
-  notes?: string;
-  takeaway?: string;
-  addedAt: string;
+export type ClaudePrLink = {
+  repo: string;
+  number: number;
+  url: string;
+  at: string;
 };
 
-export type PR = {
+export type ClaudeDay = {
+  sessions: ClaudeSession[];
+  prompts: ClaudePrompt[];
+  prs: ClaudePrLink[];
+  totals: {
+    sessions: number;
+    prompts: number;
+    assistantMessages: number;
+    toolCalls: number;
+    activeMinutes: number;
+    costUsd: number | null;
+    tokens: { input: number; output: number; cacheRead: number; cacheCreate: number };
+  };
+  models: string[];
+  projects: string[];
+};
+
+// ── GitHub activity ────────────────────────────────────────────────────────
+
+export type Commit = {
+  repo: string;
+  sha: string;
+  message: string;
+  url: string;
+  at: string;
+};
+
+export type PullRequest = {
+  repo: string;
   number: number;
   title: string;
-  repo: string;
   url: string;
   state: 'open' | 'closed' | 'merged';
   createdAt: string;
-  mergedAt?: string;
-  additions?: number;
-  deletions?: number;
+  mergedAt: string | null;
+  additions: number | null;
+  deletions: number | null;
 };
 
-export type ReviewedPR = {
+export type ReviewedPullRequest = {
+  repo: string;
   number: number;
   title: string;
-  repo: string;
   url: string;
-  reviewedAt: string;
   author: string;
+  at: string;
 };
 
-export type GitHubActivity = {
-  prsOpened: PR[];
-  prsMerged: PR[];
-  prsReviewed: ReviewedPR[];
-  reposTouched: string[];
-  languages: Record<string, number>;
+export type GitHubDay = {
+  commits: Commit[];
+  opened: PullRequest[];
+  merged: PullRequest[];
+  reviewed: ReviewedPullRequest[];
+  repos: string[];
   totals: {
+    commits: number;
     opened: number;
     merged: number;
     reviewed: number;
@@ -61,31 +95,35 @@ export type GitHubActivity = {
   };
 };
 
-export type GoalScore = {
-  goalId: string;
-  goalTitle: string;
-  score: number; // 1-5
-  reason: string;
+// ── Stored records ─────────────────────────────────────────────────────────
+
+export type DayRecord = {
+  day: string;
+  claude: ClaudeDay | null;
+  github: GitHubDay | null;
+  collectedAt: string | null;
 };
 
-export type WeeklyReview = {
-  provider: 'anthropic' | 'openai';
-  model: string;
+/**
+ * What the agent writes back. `did` is what happened; `learned` and `grew` are
+ * the point of the whole exercise. All three may be empty — a quiet day should
+ * read as a quiet day rather than have growth invented for it.
+ */
+export type Wrap = {
+  period: Period;
+  key: string;
+  headline: string;
+  did: string[];
+  learned: string[];
+  grew: string[];
+  model: string | null;
   generatedAt: string;
-  body: string;
-  goalScores: GoalScore[];
-  strengths: string[];
-  adjustments: string[];
-  focusNextWeek: string;
 };
 
-export type WeekSnapshot = {
-  isoWeek: string; // e.g. "2026-W25"
-  start: string; // ISO date
-  end: string;
-  github: GitHubActivity | null;
-  reflection: Reflection | null;
-  reading: ReadingEntry[];
-  review: WeeklyReview | null;
-  savedAt: string | null;
+export type Reflection = {
+  period: Period;
+  key: string;
+  body: string;
+  energy: number | null;
+  updatedAt: string;
 };

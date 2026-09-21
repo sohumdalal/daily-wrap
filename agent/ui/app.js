@@ -1,0 +1,411 @@
+/**
+ * Daily Wrap — the whole client. No framework, no build step.
+ *
+ * State is two values: which period you're looking at, and which key. Both
+ * live in the URL hash so a day is linkable and the back button works.
+ */
+
+const $ = (id) => document.getElementById(id);
+
+const el = {
+  shell: $('shell'),
+  periods: $('periods'),
+  prev: $('prev'),
+  next: $('next'),
+  dateLabel: $('date-label'),
+  todayBadge: $('today-badge'),
+  headline: $('headline'),
+  empty: $('empty'),
+  specs: $('specs'),
+  specsRule: $('specs-rule'),
+  did: $('did'),
+  didSection: $('did-section'),
+  learned: $('learned'),
+  learnedSection: $('learned-section'),
+  grew: $('grew'),
+  grewSection: $('grew-section'),
+  covered: $('covered'),
+  coveredSection: $('covered-section'),
+  reflection: $('reflection'),
+  reflectionLabel: $('reflection-label'),
+  energy: $('energy'),
+  saved: $('saved'),
+  wrap: $('wrap'),
+  collect: $('collect'),
+  note: $('note'),
+};
+
+let state = { period: 'day', key: null, today: null, view: null, busy: false };
+
+// ── Period key arithmetic (mirrors agent/time.ts, for navigation only) ─────
+
+const pad = (n) => String(n).padStart(2, '0');
+
+function shiftDay(key, delta) {
+  const d = new Date(`${key}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + delta);
+  return d.toISOString().slice(0, 10);
+}
+
+function mondayOfWeekKey(key) {
+  const [year, week] = key.split('-W').map(Number);
+  const jan4 = new Date(Date.UTC(year, 0, 4));
+  const monday = new Date(jan4);
+  monday.setUTCDate(jan4.getUTCDate() - ((jan4.getUTCDay() + 6) % 7));
+  monday.setUTCDate(monday.getUTCDate() + (week - 1) * 7);
+  return monday.toISOString().slice(0, 10);
+}
+
+function weekKeyOf(day) {
+  const d = new Date(`${day}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7) + 3);
+  const isoYear = d.getUTCFullYear();
+  const firstThursday = new Date(Date.UTC(isoYear, 0, 4));
+  firstThursday.setUTCDate(
+    firstThursday.getUTCDate() - ((firstThursday.getUTCDay() + 6) % 7) + 3,
+  );
+  const week = 1 + Math.round((d - firstThursday) / (7 * 86400000));
+  return `${isoYear}-W${pad(week)}`;
+}
+
+function shiftKey(period, key, delta) {
+  if (period === 'day') return shiftDay(key, delta);
+  if (period === 'week') return weekKeyOf(shiftDay(mondayOfWeekKey(key), delta * 7));
+  if (period === 'month') {
+    const [y, m] = key.split('-').map(Number);
+    const d = new Date(Date.UTC(y, m - 1 + delta, 1));
+    return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}`;
+  }
+  return String(Number(key) + delta);
+}
+
+/** The key for the period that contains today — where each period starts. */
+function keyForToday(period, today) {
+  if (period === 'day') return today;
+  if (period === 'week') return weekKeyOf(today);
+  if (period === 'month') return today.slice(0, 7);
+  return today.slice(0, 4);
+}
+
+/** The key for the period containing `day`, for switching period in place. */
+function keyContaining(period, key, today) {
+  // Derive a representative day from whatever key we're on, then re-bucket it.
+  let day = today;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(key)) day = key;
+  else if (key.includes('-W')) day = mondayOfWeekKey(key);
+  else if (/^\d{4}-\d{2}$/.test(key)) day = `${key}-01`;
+  else if (/^\d{4}$/.test(key)) day = `${key}-01-01`;
+  return keyForToday(period, day);
+}
+
+// ── Rendering ──────────────────────────────────────────────────────────────
+
+function list(node, items) {
+  node.replaceChildren(
+    ...items.map((text) => {
+      const li = document.createElement('li');
+      li.textContent = text;
+      return li;
+    }),
+  );
+}
+
+function specCell(value, label) {
+  const cell = document.createElement('div');
+  const v = document.createElement('div');
+  v.className = value ? 'spec-value' : 'spec-value dim';
+  v.textContent = String(value);
+  const l = document.createElement('div');
+  l.className = 'label spec-label';
+  l.textContent = label;
+  cell.append(v, l);
+  return cell;
+}
+
+function renderSpecs(view) {
+  const claude = view.claude;
+  const github = view.github;
+  if (!claude && !github) {
+    el.specs.hidden = true;
+    el.specsRule.hidden = true;
+    return;
+  }
+  const c = claude?.totals;
+  const g = github?.totals;
+  el.specs.replaceChildren(
+    specCell(c?.prompts ?? 0, 'Prompts'),
+    specCell(g?.commits ?? 0, 'Commits'),
+    specCell((g?.opened ?? 0) + (g?.merged ?? 0), 'Pull requests'),
+    specCell(c?.activeMinutes ?? 0, 'Minutes active'),
+  );
+  el.specs.hidden = false;
+  el.specsRule.hidden = false;
+}
+
+function renderWrap(view) {
+  const wrap = view.wrap;
+  const hasWrap = Boolean(wrap && (wrap.headline || wrap.did.length));
+
+  el.headline.hidden = !hasWrap;
+  el.empty.hidden = hasWrap;
+  if (hasWrap) el.headline.textContent = wrap.headline;
+
+  el.empty.textContent =
+    view.period === 'day'
+      ? 'Nothing wrapped yet.'
+      : `Nothing wrapped for this ${view.period} yet.`;
+
+  const sections = [
+    [el.didSection, el.did, wrap?.did ?? []],
+    [el.learnedSection, el.learned, wrap?.learned ?? []],
+    [el.grewSection, el.grew, wrap?.grew ?? []],
+  ];
+  for (const [section, node, items] of sections) {
+    section.hidden = items.length === 0;
+    if (items.length) list(node, items);
+  }
+}
+
+function renderCovered(view) {
+  const days = view.coveredDays;
+  if (!days) {
+    el.coveredSection.hidden = true;
+    return;
+  }
+  el.coveredSection.hidden = false;
+  if (!days.length) {
+    const p = document.createElement('p');
+    p.className = 'caption';
+    p.textContent = 'No days wrapped in this period yet.';
+    el.covered.replaceChildren(p);
+    return;
+  }
+  el.covered.replaceChildren(
+    ...days.map((d) => {
+      const a = document.createElement('a');
+      a.href = `#day/${d.key}`;
+      const when = document.createElement('span');
+      when.className = 'when';
+      when.textContent = d.key;
+      const what = document.createElement('span');
+      what.className = 'what';
+      what.textContent = d.headline;
+      a.append(when, what);
+      return a;
+    }),
+  );
+}
+
+function renderReflection(view) {
+  const r = view.reflection;
+  // Don't clobber what's being typed if a refresh lands mid-sentence.
+  if (document.activeElement !== el.reflection) {
+    el.reflection.value = r?.body ?? '';
+  }
+  el.reflection.placeholder =
+    view.period === 'day'
+      ? 'What actually happened today?'
+      : `Looking back on this ${view.period} — what changed?`;
+  el.reflectionLabel.textContent = 'Reflection';
+  for (const button of el.energy.querySelectorAll('button')) {
+    button.setAttribute(
+      'aria-pressed',
+      String(Number(button.dataset.energy) === r?.energy),
+    );
+  }
+  el.saved.textContent = r?.updatedAt
+    ? `Saved ${new Date(r.updatedAt).toLocaleTimeString([], {
+        hour: 'numeric',
+        minute: '2-digit',
+      })}`
+    : '';
+}
+
+function render() {
+  const view = state.view;
+  if (!view) return;
+
+  for (const button of el.periods.querySelectorAll('button')) {
+    button.setAttribute('aria-current', String(button.dataset.period === state.period));
+  }
+
+  el.dateLabel.textContent = view.label;
+  el.todayBadge.hidden = view.key !== keyForToday(state.period, state.today);
+  // No future — a day that hasn't happened has nothing to wrap.
+  el.next.disabled = view.key >= keyForToday(state.period, state.today);
+
+  el.wrap.textContent = state.period === 'day' ? 'Wrap the day' : `Wrap the ${state.period}`;
+  el.collect.hidden = state.period !== 'day';
+
+  renderSpecs(view);
+  renderWrap(view);
+  renderCovered(view);
+  renderReflection(view);
+}
+
+function note(message, warn = false) {
+  el.note.hidden = !message;
+  el.note.textContent = message ?? '';
+  el.note.className = warn ? 'note warn' : 'note';
+}
+
+function busy(on) {
+  state.busy = on;
+  el.shell.classList.toggle('busy', on);
+  el.wrap.disabled = on;
+  el.collect.disabled = on;
+}
+
+// ── Server ─────────────────────────────────────────────────────────────────
+
+async function api(path, options) {
+  const res = await fetch(path, {
+    headers: { 'content-type': 'application/json' },
+    ...options,
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error ?? `${res.status} ${res.statusText}`);
+  return body;
+}
+
+async function load() {
+  state.view = await api(`/api/view/${state.period}/${state.key}`);
+  render();
+}
+
+async function run(path, pending) {
+  if (state.busy) return;
+  busy(true);
+  note(pending);
+  try {
+    const view = await api(path, { method: 'POST' });
+    state.view = view;
+    render();
+    if (view.empty) note('Nothing recorded for this day — nothing to wrap.');
+    else if (view.errors?.length) note(view.errors.join(' · '), true);
+    else note(null);
+  } catch (err) {
+    note(err.message, true);
+  } finally {
+    busy(false);
+  }
+}
+
+const wrapNow = () =>
+  run(
+    `/api/view/${state.period}/${state.key}/wrap`,
+    state.period === 'day' ? 'Reading the day, then writing it…' : 'Reading the days…',
+  );
+
+const collectNow = () =>
+  run(`/api/view/${state.period}/${state.key}/collect`, 'Re-reading Claude and GitHub…');
+
+let saveTimer;
+async function saveReflection() {
+  const energyButton = el.energy.querySelector('button[aria-pressed="true"]');
+  try {
+    const { reflection } = await api(`/api/reflection/${state.period}/${state.key}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        body: el.reflection.value,
+        energy: energyButton ? Number(energyButton.dataset.energy) : null,
+      }),
+    });
+    if (state.view) state.view.reflection = reflection;
+    renderReflection(state.view);
+  } catch (err) {
+    note(err.message, true);
+  }
+}
+
+function queueSave() {
+  clearTimeout(saveTimer);
+  el.saved.textContent = 'Saving…';
+  saveTimer = setTimeout(saveReflection, 700);
+}
+
+// ── Routing ────────────────────────────────────────────────────────────────
+
+function go(period, key, replace = false) {
+  const hash = `#${period}/${key}`;
+  if (replace) history.replaceState(null, '', hash);
+  else location.hash = hash;
+  if (replace) applyHash();
+}
+
+function applyHash() {
+  const [period, key] = location.hash.replace(/^#/, '').split('/');
+  const valid = ['day', 'week', 'month', 'year'].includes(period) && key;
+  state.period = valid ? period : 'day';
+  state.key = valid ? key : keyForToday(state.period, state.today);
+  load().catch((err) => note(err.message, true));
+}
+
+// ── Events ─────────────────────────────────────────────────────────────────
+
+el.periods.addEventListener('click', (e) => {
+  const period = e.target.dataset?.period;
+  if (period) go(period, keyContaining(period, state.key, state.today));
+});
+
+el.prev.addEventListener('click', () => go(state.period, shiftKey(state.period, state.key, -1)));
+el.next.addEventListener('click', () => {
+  if (!el.next.disabled) go(state.period, shiftKey(state.period, state.key, 1));
+});
+
+el.wrap.addEventListener('click', wrapNow);
+el.collect.addEventListener('click', collectNow);
+
+el.reflection.addEventListener('input', queueSave);
+el.reflection.addEventListener('blur', () => {
+  clearTimeout(saveTimer);
+  saveReflection();
+});
+
+el.energy.addEventListener('click', (e) => {
+  const value = e.target.dataset?.energy;
+  if (!value) return;
+  const already = e.target.getAttribute('aria-pressed') === 'true';
+  for (const button of el.energy.querySelectorAll('button')) {
+    button.setAttribute('aria-pressed', String(!already && button === e.target));
+  }
+  saveReflection();
+});
+
+document.addEventListener('keydown', (e) => {
+  // Never steal keys from the reflection box.
+  if (e.target === el.reflection) {
+    if (e.key === 'Escape') el.reflection.blur();
+    return;
+  }
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+  const periods = { d: 'day', w: 'week', m: 'month', y: 'year' };
+  const period = periods[e.key.toLowerCase()];
+
+  if (e.key === 'ArrowLeft') el.prev.click();
+  else if (e.key === 'ArrowRight') el.next.click();
+  else if (e.key === 'Enter') wrapNow();
+  else if (e.key.toLowerCase() === 'r') {
+    e.preventDefault();
+    el.reflection.focus();
+  } else if (period) go(period, keyContaining(period, state.key, state.today));
+});
+
+window.addEventListener('hashchange', applyHash);
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+
+(async () => {
+  try {
+    const server = await api('/api/state');
+    state.today = server.today;
+    if (!server.llm) note('ANTHROPIC_API_KEY is not set — wraps cannot be written.', true);
+    else if (!server.github) note('GitHub is not configured — the day will be Claude only.', true);
+  } catch (err) {
+    note(`Cannot reach the agent: ${err.message}`, true);
+    state.today = new Date().toISOString().slice(0, 10);
+  }
+  if (!location.hash) go('day', state.today, true);
+  else applyHash();
+})();
