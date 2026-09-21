@@ -24,7 +24,7 @@ import {
   today,
   type Period,
 } from './time.ts';
-import { hasActivity, writeDayWrap, writeRollup } from './wrap.ts';
+import { hasActivity, NoDaysToRollUp, writeDayWrap, writeRollup } from './wrap.ts';
 import type { ClaudeDay, GitHubDay } from './types.ts';
 
 export const routes = new Hono();
@@ -140,8 +140,16 @@ routes.post('/api/view/:period/:key/wrap', async (c) => {
   }
 
   if (t.period !== 'day') {
-    const wrap = await writeRollup(t.period, t.key);
-    return c.json({ ...(await view(t.period, t.key)), wrap, errors: [] });
+    try {
+      const wrap = await writeRollup(t.period, t.key);
+      return c.json({ ...(await view(t.period, t.key)), wrap, errors: [] });
+    } catch (err) {
+      // Nothing wrapped underneath yet is a state of the record, not a fault.
+      if (err instanceof NoDaysToRollUp) {
+        return c.json({ ...(await view(t.period, t.key)), empty: true, errors: [] }, 200);
+      }
+      throw err;
+    }
   }
 
   // Always re-read the sources first: the day is usually still in progress.

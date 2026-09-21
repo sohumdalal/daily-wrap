@@ -166,6 +166,9 @@ function describeDay(day: string, claude: ClaudeDay | null, github: GitHubDay | 
   return out.filter(Boolean).join('\n');
 }
 
+/** A period with no wrapped days beneath it. Expected, not a failure. */
+export class NoDaysToRollUp extends Error {}
+
 /** Whether a day holds enough to be worth asking the model about. */
 export function hasActivity(claude: ClaudeDay | null, github: GitHubDay | null): boolean {
   const c = claude?.totals;
@@ -213,7 +216,7 @@ export async function writeRollup(period: Period, key: string): Promise<Wrap> {
   ]);
 
   if (!dayWraps.length) {
-    throw new Error(`no daily wraps between ${from} and ${to} to roll up`);
+    throw new NoDaysToRollUp(`no daily wraps between ${from} and ${to} to roll up`);
   }
 
   const reflectionByDay = new Map(dayReflections.map((r) => [r.key, r]));

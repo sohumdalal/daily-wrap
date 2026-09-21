@@ -281,7 +281,12 @@ async function run(path, pending) {
     const view = await api(path, { method: 'POST' });
     state.view = view;
     render();
-    if (view.empty) note('Nothing recorded for this day — nothing to wrap.');
+    if (view.empty)
+      note(
+        state.period === 'day'
+          ? 'Nothing recorded for this day — nothing to wrap.'
+          : `No days wrapped in this ${state.period} yet — wrap some days first.`,
+      );
     else if (view.errors?.length) note(view.errors.join(' · '), true);
     else note(null);
   } catch (err) {
