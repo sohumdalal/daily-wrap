@@ -10,9 +10,7 @@ import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-// The old Mentor names stay listed so the secrets already sitting in the ast
-// bag under them keep working without a re-configure.
-const PROJECT_NAMES = ['daily-wrap', '@sohumdalal/daily-wrap', 'mentor', '@sohumdalal/mentor'];
+const PROJECT_NAMES = ['daily-wrap', '@sohumdalal/daily-wrap'];
 
 // Precedence: real shell environment, then the live `gh` credential, then the
 // ast project bag. Noting what the shell actually set has to happen before the
