@@ -52,21 +52,74 @@ export async function getDays(from: string, to: string): Promise<DayRecord[]> {
   return rows.map(toDay);
 }
 
+/**
+ * How much signal a capture holds. Used to decide whether a fresh collect is
+ * an improvement on what is already stored, or a regression.
+ */
+function claudeSignal(day: ClaudeDay | null): number {
+  if (!day) return 0;
+  const t = day.totals;
+  return t.prompts + t.sessions + t.toolCalls;
+}
+
+function githubSignal(day: GitHubDay | null): number {
+  if (!day) return 0;
+  const t = day.totals;
+  return t.commits + t.opened + t.merged + t.reviewed;
+}
+
+/**
+ * Store a day's raw material, keeping the richer capture per source.
+ *
+ * Re-collecting is normal — you wrap at noon and again at midnight — but it is
+ * not always an improvement. Claude Code prunes and rotates its transcripts,
+ * so re-reading a day weeks later can return less than was captured at the
+ * time; a GitHub token can lose access to a repo it could once see. Blindly
+ * taking the newer result means a permanent record quietly degrades as it
+ * ages, which defeats the point of keeping it.
+ *
+ * So a source is replaced only when the new capture holds at least as much
+ * signal as the stored one. The two sources are judged independently: a
+ * GitHub outage should not cost you the day's Claude record.
+ *
+ * Done in a transaction because it is a read-then-write; concurrent collects of
+ * the same day would otherwise be able to interleave.
+ */
 export async function saveDay(
   day: string,
   claude: ClaudeDay | null,
   github: GitHubDay | null,
 ): Promise<DayRecord> {
-  const rows = await db()<DayRow[]>`
-    INSERT INTO days (day, user_id, claude, github, collected_at)
-    VALUES (${day}, ${USER}, ${db().json(claude)}, ${db().json(github)}, now())
-    ON CONFLICT (day, user_id) DO UPDATE
-       SET claude = EXCLUDED.claude,
-           github = EXCLUDED.github,
-           collected_at = EXCLUDED.collected_at
-    RETURNING day, claude, github, collected_at
-  `;
-  return toDay(rows[0]!);
+  const sql = db();
+  return sql.begin(async (tx) => {
+    const existing = await tx<DayRow[]>`
+      SELECT day, claude, github, collected_at
+        FROM days
+       WHERE user_id = ${USER} AND day = ${day}
+         FOR UPDATE
+    `;
+    const stored = existing[0];
+
+    const keepClaude =
+      stored && claudeSignal(claude) < claudeSignal(stored.claude)
+        ? stored.claude
+        : claude;
+    const keepGithub =
+      stored && githubSignal(github) < githubSignal(stored.github)
+        ? stored.github
+        : github;
+
+    const rows = await tx<DayRow[]>`
+      INSERT INTO days (day, user_id, claude, github, collected_at)
+      VALUES (${day}, ${USER}, ${tx.json(keepClaude)}, ${tx.json(keepGithub)}, now())
+      ON CONFLICT (day, user_id) DO UPDATE
+         SET claude = EXCLUDED.claude,
+             github = EXCLUDED.github,
+             collected_at = EXCLUDED.collected_at
+      RETURNING day, claude, github, collected_at
+    `;
+    return toDay(rows[0]!);
+  });
 }
 
 type WrapRow = {

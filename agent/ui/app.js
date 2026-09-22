@@ -523,11 +523,21 @@ const collectNow = () =>
 let saveTimer;
 async function saveReflection() {
   const energyButton = el.energy.querySelector('button[aria-pressed="true"]');
+  const body = el.reflection.value;
+
+  // Clicking into the box and back out should not create a record. Only write
+  // an empty reflection when there is already one to clear.
+  const hasContent = body.trim() !== '' || energyButton !== null;
+  if (!hasContent && !state.view?.reflection) {
+    el.saved.textContent = '';
+    return;
+  }
+
   try {
     const { reflection } = await api(`/api/reflection/${state.period}/${state.key}`, {
       method: 'PUT',
       body: JSON.stringify({
-        body: el.reflection.value,
+        body,
         energy: energyButton ? Number(energyButton.dataset.energy) : null,
       }),
     });
