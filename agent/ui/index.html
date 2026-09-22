@@ -23,15 +23,33 @@
           <button data-period="year">Year</button>
           <button data-view="goals" id="goals-tab">Goals</button>
         </div>
-        <!-- The native date input cannot be styled to fit: its text is
-             browser-rendered and its indicator ships as a black glyph. So the
-             visible control is ours, and the input is kept only for the native
-             calendar popup, opened with showPicker(). -->
-        <span class="datefield" id="datefield" title="Jump to a date">
-          <span id="datefield-label">—</span>
-          <span class="chevron" aria-hidden="true">▾</span>
-          <input type="date" id="datepick" aria-label="Jump to a date" />
-        </span>
+        <!-- The whole calendar is ours. A native date input's popup is browser
+             chrome: CSS cannot reach it, so it arrives grey with a blue
+             selection and blue system links, and there is no version of that
+             which matches. Weeks start Monday here, to agree with the ISO week
+             keys the rest of the app is built on. -->
+        <div class="datefield-wrap">
+          <button class="datefield" id="datefield" title="Jump to a date" type="button">
+            <span id="datefield-label">—</span>
+            <span class="chevron" aria-hidden="true">▾</span>
+          </button>
+          <div class="calendar" id="calendar" hidden>
+            <div class="cal-head">
+              <button class="cal-nav" id="cal-prev" type="button" aria-label="Previous month">
+                &larr;
+              </button>
+              <span class="cal-month" id="cal-month"></span>
+              <button class="cal-nav" id="cal-next" type="button" aria-label="Next month">
+                &rarr;
+              </button>
+            </div>
+            <div class="cal-dow" id="cal-dow"></div>
+            <div class="cal-grid" id="cal-grid"></div>
+            <div class="cal-foot">
+              <button class="cal-today" id="cal-today" type="button">Today</button>
+            </div>
+          </div>
+        </div>
         <button class="today-jump" id="today-jump" title="Today's reflection (T)">
           Today
         </button>
@@ -87,7 +105,7 @@
         </form>
       </section>
 
-      <section class="section" id="goal-list-section">
+      <section class="section">
         <div class="section-head"><span class="label">Your goals</span></div>
         <div class="goals" id="goal-list"></div>
         <p class="caption" id="goals-empty" hidden>

@@ -35,9 +35,15 @@ const el = {
   goalsEmpty: $('goals-empty'),
   periods: $('periods'),
   todayJump: $('today-jump'),
-  datepick: $('datepick'),
   datefield: $('datefield'),
   datefieldLabel: $('datefield-label'),
+  calendar: $('calendar'),
+  calMonth: $('cal-month'),
+  calDow: $('cal-dow'),
+  calGrid: $('cal-grid'),
+  calPrev: $('cal-prev'),
+  calNext: $('cal-next'),
+  calToday: $('cal-today'),
   prev: $('prev'),
   next: $('next'),
   dateLabel: $('date-label'),
@@ -339,10 +345,6 @@ function render() {
   const view = state.view;
   if (!view) return;
 
-  // The picker always holds a real date for the current key, and cannot reach
-  // into the future, where there is nothing to wrap.
-  el.datepick.value = view.span.from;
-  el.datepick.max = state.today;
   el.datefieldLabel.textContent = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'UTC',
     day: 'numeric',
@@ -556,7 +558,8 @@ function applyMode() {
   el.goalsView.hidden = !goals;
   el.shell.hidden = goals;
   el.goalsTab.setAttribute('aria-current', String(goals));
-  el.datefield.hidden = goals;
+  el.datefield.closest('.datefield-wrap').hidden = goals;
+  closeCalendar();
   for (const button of el.periods.querySelectorAll('button[data-period]')) {
     button.setAttribute(
       'aria-current',
@@ -643,27 +646,122 @@ async function goToTodaysReflection() {
 
 el.todayJump.addEventListener('click', goToTodaysReflection);
 
-// Clicking our trigger opens the native calendar. showPicker() is the only way
-// to do that without the browser's own control being visible; where it is
-// unsupported, focusing the input still lets the keyboard through.
-el.datefield.addEventListener('click', () => {
-  try {
-    el.datepick.showPicker();
-  } catch {
-    el.datepick.focus();
+// ── Calendar ───────────────────────────────────────────────────────────────
+
+/** Which month the open calendar is showing, as `YYYY-MM`. */
+let calMonth = null;
+
+const monthOf = (key) => key.slice(0, 7);
+
+function shiftMonth(month, delta) {
+  const [y, m] = month.split('-').map(Number);
+  const d = new Date(Date.UTC(y, m - 1 + delta, 1));
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}`;
+}
+
+function renderCalendar() {
+  const [year, month] = calMonth.split('-').map(Number);
+  const first = new Date(Date.UTC(year, month - 1, 1));
+
+  el.calMonth.textContent = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'UTC',
+    month: 'long',
+    year: 'numeric',
+  }).format(first);
+
+  // Weeks start Monday, to agree with the ISO week keys used everywhere else.
+  if (!el.calDow.childElementCount) {
+    el.calDow.replaceChildren(
+      ...['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d) => {
+        const span = document.createElement('span');
+        span.textContent = d;
+        return span;
+      }),
+    );
   }
+
+  const leading = (first.getUTCDay() + 6) % 7;
+  const gridStart = new Date(first);
+  gridStart.setUTCDate(first.getUTCDate() - leading);
+
+  const selected = state.view?.span.from;
+  const cells = [];
+  for (let i = 0; i < 42; i++) {
+    const at = new Date(gridStart);
+    at.setUTCDate(gridStart.getUTCDate() + i);
+    const iso = at.toISOString().slice(0, 10);
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'cal-day';
+    button.textContent = String(at.getUTCDate());
+    button.dataset.outside = String(iso.slice(0, 7) !== calMonth);
+    button.dataset.today = String(iso === state.today);
+    // A day in a period the current view covers reads as selected, so the
+    // calendar makes sense on a week or month view too.
+    button.setAttribute(
+      'aria-selected',
+      String(
+        selected !== undefined &&
+          iso >= selected &&
+          iso <= (state.view?.span.to ?? selected),
+      ),
+    );
+    // Nothing to wrap in the future.
+    button.disabled = iso > state.today;
+    if (!button.disabled) {
+      button.addEventListener('click', () => {
+        closeCalendar();
+        go(state.period, keyForToday(state.period, iso));
+      });
+    }
+    cells.push(button);
+  }
+  el.calGrid.replaceChildren(...cells);
+
+  // Never navigate into a month that has not happened.
+  el.calNext.disabled = shiftMonth(calMonth, 1) > monthOf(state.today);
+}
+
+function openCalendar() {
+  calMonth = monthOf(state.view?.span.from ?? state.today);
+  el.calendar.hidden = false;
+  el.datefield.setAttribute('aria-expanded', 'true');
+  renderCalendar();
+}
+
+function closeCalendar() {
+  el.calendar.hidden = true;
+  el.datefield.setAttribute('aria-expanded', 'false');
+}
+
+el.datefield.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (el.calendar.hidden) openCalendar();
+  else closeCalendar();
 });
 
-// Picking a date jumps to the period that contains it, so the calendar works
-// the same whether you are looking at a day, a week, a month or a year.
-el.datepick.addEventListener('change', () => {
-  const picked = el.datepick.value;
-  if (!picked) return;
-  if (picked > state.today) {
-    el.datepick.value = state.view?.span.from ?? state.today;
-    return;
-  }
-  go(state.period, keyForToday(state.period, picked));
+el.calendar.addEventListener('click', (e) => e.stopPropagation());
+
+el.calPrev.addEventListener('click', () => {
+  calMonth = shiftMonth(calMonth, -1);
+  renderCalendar();
+});
+
+el.calNext.addEventListener('click', () => {
+  if (el.calNext.disabled) return;
+  calMonth = shiftMonth(calMonth, 1);
+  renderCalendar();
+});
+
+el.calToday.addEventListener('click', () => {
+  closeCalendar();
+  go(state.period, keyForToday(state.period, state.today));
+});
+
+// Clicking anywhere else, or Escape, dismisses it.
+document.addEventListener('click', () => {
+  if (!el.calendar.hidden) closeCalendar();
 });
 
 // ── Disagreeing with the agent's take ──────────────────────────────────────
@@ -732,6 +830,10 @@ document.addEventListener('keydown', (e) => {
   if (e.target === el.disputeNote) {
     if (e.key === 'Escape') showDispute(false);
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) el.disputeSend.click();
+    return;
+  }
+  if (e.key === 'Escape' && !el.calendar.hidden) {
+    closeCalendar();
     return;
   }
   if (e.metaKey || e.ctrlKey || e.altKey) return;
