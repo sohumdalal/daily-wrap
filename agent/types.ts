@@ -143,6 +143,39 @@ export type Wrap = {
   generatedAt: string;
 };
 
+export const GOAL_CATEGORIES = [
+  'career',
+  'craft',
+  'impact',
+  'personal',
+  'intrinsic',
+] as const;
+export const GOAL_HORIZONS = ['quarter', 'year', 'long'] as const;
+export const GOAL_STATUSES = ['active', 'paused', 'achieved', 'dropped'] as const;
+
+export type GoalCategory = (typeof GOAL_CATEGORIES)[number];
+export type GoalHorizon = (typeof GOAL_HORIZONS)[number];
+export type GoalStatus = (typeof GOAL_STATUSES)[number];
+
+/**
+ * Something this person is trying to become. Active goals are an input to
+ * every wrap, which is what lets "where to improve" be measured against their
+ * own direction instead of against nothing.
+ */
+export type Goal = {
+  id: string;
+  title: string;
+  category: GoalCategory;
+  horizon: GoalHorizon;
+  /** Why it matters to them. The anchor that keeps a goal from being someone else's. */
+  why: string;
+  measure: string;
+  status: GoalStatus;
+  sort: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
 /**
  * A correction the person made to something the agent wrote. Every wrap
  * written afterwards sees these, which is how the agent's read of them gets

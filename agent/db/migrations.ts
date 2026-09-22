@@ -97,6 +97,35 @@ const MIGRATIONS: Array<{ id: string; sql: string }> = [
         ON feedback(user_id, created_at DESC);
     `,
   },
+  {
+    // Goals are an input to every generated wrap, not a separate tracker. The
+    // point of "where to improve" is that it is measured against what this
+    // person is actually trying to become, which the day's diffs cannot say.
+    //
+    // "why" holds the intrinsic anchor — the reason the goal matters to them.
+    // Career goals without it drift into someone else's ladder.
+    id: '0004_goals',
+    sql: `
+      CREATE TABLE IF NOT EXISTS goals (
+        id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id    TEXT NOT NULL DEFAULT 'default',
+        title      TEXT NOT NULL,
+        category   TEXT NOT NULL DEFAULT 'career'
+                   CHECK (category IN ('career','craft','impact','personal','intrinsic')),
+        horizon    TEXT NOT NULL DEFAULT 'year'
+                   CHECK (horizon IN ('quarter','year','long')),
+        why        TEXT NOT NULL DEFAULT '',
+        measure    TEXT NOT NULL DEFAULT '',
+        status     TEXT NOT NULL DEFAULT 'active'
+                   CHECK (status IN ('active','paused','achieved','dropped')),
+        sort       INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS goals_active
+        ON goals(user_id, status, category, sort);
+    `,
+  },
 ];
 
 export async function runMigrations(): Promise<void> {

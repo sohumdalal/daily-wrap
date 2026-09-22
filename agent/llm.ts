@@ -43,7 +43,10 @@ export async function generate<T>(opts: {
 
     const res = await anthropic().messages.create({
       model,
-      max_tokens: opts.maxTokens ?? 2048,
+      // A wrap is a small JSON object, but "small" stopped being true once the
+      // bullets became sentences: at 2048 the reply was cut off mid-string and
+      // surfaced only as unparseable JSON. Leave real headroom.
+      max_tokens: opts.maxTokens ?? 8192,
       system: opts.system,
       messages: [{ role: 'user', content: user }],
     });
@@ -57,6 +60,15 @@ export async function generate<T>(opts: {
       return { value: opts.schema.parse(extractJson(text)), model };
     } catch (err) {
       lastError = err;
+      // Without the reply itself, "no JSON object in model reply" is
+      // unactionable — it hides a truncated response, a refusal, and a stray
+      // preamble behind one message.
+      console.warn(
+        `[llm] attempt ${attempt + 1} unusable ` +
+          `(stop_reason=${res.stop_reason}, output_tokens=${res.usage.output_tokens}): ` +
+          `${err instanceof Error ? err.message : String(err)}\n` +
+          `[llm] reply began: ${JSON.stringify(text.slice(0, 300))}`,
+      );
     }
   }
 

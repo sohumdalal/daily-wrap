@@ -12,10 +12,26 @@ import { z } from 'zod';
 import { generate } from './llm.ts';
 import * as store from './store.ts';
 import { addDays, labelFor, spanOf, type Period } from './time.ts';
-import type { ClaudeDay, Feedback, GitHubDay, Reflection, Wrap } from './types.ts';
+import type {
+  ClaudeDay,
+  Feedback,
+  GitHubDay,
+  Goal,
+  Reflection,
+  Wrap,
+} from './types.ts';
 
 /** How many preceding days of wraps the model sees, for continuity. */
 const PRIOR_DAYS = 10;
+
+/**
+ * How much of the prompt record reaches the model. Generous on purpose: the
+ * read is supposed to be about how this person thinks, and the prompts are the
+ * only place that shows. A busy day at these limits is ~10k tokens of input,
+ * which is cheap next to writing a paragraph that misses the point.
+ */
+const MAX_PROMPTS_PER_SESSION = 30;
+const MAX_PROMPT_CHARS = 500;
 
 /**
  * Caps here are a guard against runaway output, not a style rule — the prompt
@@ -23,7 +39,7 @@ const PRIOR_DAYS = 10;
  * A tight cap is the wrong tool: a dense day produces longer sentences, and
  * rejecting them throws away the entire wrap for the busiest day of the week.
  */
-const PROSE_MAX = 320;
+const PROSE_MAX = 420;
 
 const WrapSchema = z.object({
   // A compact label, not a title: it appears as one row in a rollup's list of
@@ -31,22 +47,48 @@ const WrapSchema = z.object({
   headline: z.string().min(1).max(60),
   did: z.array(z.string().min(1).max(PROSE_MAX)).max(5),
   // A paragraph, and allowed to be empty on a day that shows nothing.
-  learned: z.string().max(900),
+  learned: z.string().max(1200),
   grew: z.array(z.string().min(1).max(PROSE_MAX)).max(2),
 });
 
-const VOICE = `You write to this person about their own day, in second person,
-plainly, with no cheerleading and no corporate register. Write sentences, not
-log lines: a bullet may run to about twenty five words if it needs to, and
-should read as something a sharp colleague would say to them, not as a commit
-subject. Stay concrete — name the feature, the repo, the PR number, the person
-whose work they unblocked. No adjectives that add nothing ("significant",
-"various", "several key"), no "Successfully", no em-dashes.`;
+const VOICE = `You are talking to this person about their own day, in second
+person, the way a sharp friend who happens to be a great engineer would over a
+drink — someone who was watching, is genuinely interested, and is not trying to
+flatter them.
 
-const DAY_SYSTEM = `You are writing one person's daily engineering wrap from the
-raw record of their day: their Claude Code sessions (what they asked for, what
-was built, which repos and branches) and their GitHub activity (commits, pull
-requests opened, merged and reviewed).
+So: have a point of view. Be specific enough that it could only be about this
+day. Use a real verb where a bland one would do, and let a sentence carry some
+heat when the day had some — if they spent four hours fighting a flaky test,
+that was annoying, and you can say so. If a call was sharp, say it was sharp.
+
+The failure mode to avoid is not enthusiasm, it is blandness: the neutered
+performance-review register that says "demonstrated strong ownership" and means
+nothing. Two bans, and they pull in opposite directions on purpose. No
+corporate filler — "leveraged", "demonstrated", "significant", "various",
+"several key", "Successfully", "showcases". And no cheerleading — no "great
+work", no "crushed it", no exclamation marks. Warm and unimpressed at the same
+time.
+
+Write sentences, not log lines. Stay concrete: name the feature, the repo, the
+PR number, the person whose work they unblocked, the thing they actually typed.
+No em-dashes.`;
+
+const DAY_SYSTEM = `You are writing one person's daily engineering wrap.
+
+You get two kinds of evidence, and they are not equal.
+
+The prompts they typed into Claude Code are the primary source. That is the
+only record of how this person actually thinks: how they frame a problem, what
+they reach for first, the moment they change their mind, the thing they refuse
+to accept, the idea they float and drop, where they get terse because something
+is not landing. Read them the way you would read someone talking through their
+work out loud. Their tone is evidence too.
+
+The GitHub activity — commits, pull requests, reviews — is corroboration. It
+tells you what came of the thinking. It is not the subject.
+
+A wrap built only from PR titles is a worse wrap. Two people can ship the same
+diff and have had completely different days.
 
 You are also given the wraps of the days just before this one, under PRIOR DAYS.
 Use them for continuity — to recognise work that is ongoing rather than new, and
@@ -86,23 +128,45 @@ Return a JSON object with exactly these keys:
             Never emit a bullet whose whole content is one PR number and its
             title.
   learned   A short paragraph of two or three sentences — NOT bullets, NOT a
-            list with semicolons. This is the most important field. It is your
-            own read on what today taught this person, written to them, and it
-            is placed directly beside the reflection they write themselves.
+            list with semicolons. This is the most important field, and it is
+            the one worth spending your judgement on. It is your read on this
+            person's day, written to them, and it sits directly beside the
+            reflection they write themselves.
 
-            Make an argument, not an inventory. Say what they understand now
-            that they did not this morning — a mechanism, a constraint, a root
-            cause they finally saw — and say what it cost them to get there.
-            Where the record shows them going the long way round, say so
-            plainly; that is more useful to them than praise.
+            Take the whole day, not the artifacts. Build this from how they
+            were thinking: the questions they asked, the order they asked them
+            in, the assumption they started with and abandoned, the thing they
+            kept circling, the point where they stopped trusting a tool and
+            went and looked. Name the best thinking you saw and say why it was
+            good — being specific about someone's judgement is the most useful
+            thing you can tell them.
 
-            Do not restate the work; "did" already has it. Do not narrate
-            implementation decisions as though a decision were a lesson. If the
-            day genuinely shows nothing learned, return an empty string rather
-            than filling the space.
-  grew      Zero to two bullets. A change in how this person works, judges, or
-            decides — evidenced by the record, not a task. Examples of the
-            shape: "Stopped guessing at the fix and read the failing query
+            Where they went the long way round, say so, and say what it cost.
+            Where they pushed back on something and were right, say that too.
+            If two unrelated pieces of the day were really the same problem,
+            that connection is the most valuable sentence you can write.
+
+            Do not restate the work; "did" already has it. Do not turn an
+            implementation decision into a lesson. Do not praise in general
+            terms. If the day genuinely shows nothing, return an empty string.
+  grew      Zero to two bullets. Where to go after tomorrow: the sharpest
+            thing this person could do differently next, given how today
+            actually went and what they are trying to become.
+
+            Be critical. This is the one field where you are allowed to be
+            uncomfortable, and a soft version of it is worthless. Point at the
+            specific habit today exposed, not a virtue in general. If they
+            burned two hours on something a five-minute check would have
+            settled, say that. If they are strong at the thing they keep doing
+            and avoiding the thing they need, say that.
+
+            Tie it to their goals where the record lets you. Criticism that
+            serves the direction they have chosen lands; criticism against a
+            standard they never set does not.
+
+            Never praise here. Praise belongs in "learned" where it is earned
+            by evidence. Old shape, kept for reference on specificity:
+            "Stopped guessing at the fix and read the failing query
             first." If the day shows no such change, return an empty array.
 
 Returning empty arrays for learned and grew is correct and expected on a
@@ -155,6 +219,43 @@ where they cut against the general guidance above:
 ${notes}`;
 }
 
+const CATEGORY_LABEL: Record<Goal['category'], string> = {
+  career: 'Career',
+  craft: 'Craft',
+  impact: 'Impact',
+  personal: 'Personal',
+  intrinsic: 'Why it matters',
+};
+
+const HORIZON_LABEL: Record<Goal['horizon'], string> = {
+  quarter: 'this quarter',
+  year: 'this year',
+  long: 'long term',
+};
+
+/**
+ * What this person is trying to become. Without it, "where to improve" has
+ * nothing to measure against and collapses into generic advice.
+ */
+function describeGoals(goals: Goal[]): string {
+  if (!goals.length) return '';
+  const lines = goals.map((g) => {
+    const parts = [`  - [${CATEGORY_LABEL[g.category]}, ${HORIZON_LABEL[g.horizon]}] ${g.title}`];
+    if (g.measure) parts.push(`      measured by: ${g.measure}`);
+    if (g.why) parts.push(`      why it matters to them: ${g.why}`);
+    return parts.join('\n');
+  });
+  return `
+
+THE GOALS THIS PERSON HAS SET FOR THEMSELVES:
+${lines.join('\n')}
+
+Judge the day against these, not against a generic idea of a good engineer.
+Where the day moved one of them, say which. Where a day of real work moved none
+of them, that is worth saying plainly and is often the most useful thing in the
+whole wrap. Never invent progress against a goal the record does not support.`;
+}
+
 function bullets(label: string, items: string[]): string {
   if (!items.length) return '';
   return `${label}\n${items.map((i) => `  - ${i}`).join('\n')}\n`;
@@ -185,9 +286,15 @@ function describeDay(day: string, claude: ClaudeDay | null, github: GitHubDay | 
             ? `, tools: ${s.tools.slice(0, 5).map((x) => `${x.name}×${x.count}`).join(' ')}`
             : ''),
       );
-      // The prompts are the intent behind the day. Give the model the openings.
-      for (const p of s.prompts.slice(0, 12)) {
-        out.push(`    asked: ${p.replace(/\s+/g, ' ').slice(0, 300)}`);
+      // The prompts are the primary evidence, not colour on top of the diffs:
+      // they are the only record of how this person frames a problem, when
+      // they change direction, and what they refuse to accept. Twelve per
+      // session at 300 characters was cutting most of that off mid-sentence.
+      for (const p of s.prompts.slice(0, MAX_PROMPTS_PER_SESSION)) {
+        out.push(`    asked: ${p.replace(/\s+/g, ' ').slice(0, MAX_PROMPT_CHARS)}`);
+      }
+      if (s.prompts.length > MAX_PROMPTS_PER_SESSION) {
+        out.push(`    (+${s.prompts.length - MAX_PROMPTS_PER_SESSION} more prompts)`);
       }
     }
     if (claude.prs.length) {
@@ -276,9 +383,10 @@ export async function writeDayWrap(opts: {
   reflection: Reflection | null;
 }): Promise<Wrap> {
   // Oldest first, and excluding today — a day is context for the days after it.
-  const [priors, feedback] = await Promise.all([
+  const [priors, feedback, goals] = await Promise.all([
     store.getWrapsBetween('day', addDays(opts.day, -PRIOR_DAYS), addDays(opts.day, -1)),
     store.recentFeedback(),
+    store.activeGoals(),
   ]);
 
   let user = describeDay(opts.day, opts.claude, opts.github) + describePriorDays(priors);
@@ -293,7 +401,7 @@ they learned and how they grew; the record above is only evidence):\n${opts.refl
   }
 
   const { value, model } = await generate({
-    system: DAY_SYSTEM + describeFeedback(feedback),
+    system: DAY_SYSTEM + describeGoals(goals) + describeFeedback(feedback),
     user,
     schema: WrapSchema,
   });
@@ -305,11 +413,12 @@ export async function writeRollup(period: Period, key: string): Promise<Wrap> {
   if (period === 'day') throw new Error('use writeDayWrap for a single day');
   const { from, to } = spanOf(period, key);
 
-  const [dayWraps, dayReflections, ownReflection, feedback] = await Promise.all([
+  const [dayWraps, dayReflections, ownReflection, feedback, goals] = await Promise.all([
     store.getWrapsBetween('day', from, to),
     store.getReflectionsBetween('day', from, to),
     store.getReflection(period, key),
     store.recentFeedback(),
+    store.activeGoals(),
   ]);
 
   if (!dayWraps.length) {
@@ -343,12 +452,12 @@ export async function writeRollup(period: Period, key: string): Promise<Wrap> {
   }
 
   const { value, model } = await generate({
-    system: ROLLUP_SYSTEM + describeFeedback(feedback),
+    system: ROLLUP_SYSTEM + describeGoals(goals) + describeFeedback(feedback),
     user,
     schema: WrapSchema.extend({
       grew: z.array(z.string().min(1).max(PROSE_MAX)).max(3),
     }),
-    maxTokens: 3072,
+    maxTokens: 8192,
   });
 
   return store.saveWrap({ period, key, model, ...value });

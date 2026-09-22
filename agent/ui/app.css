@@ -157,42 +157,54 @@ body {
   gap: var(--xs);
 }
 
-/* The native control, made to sit in the system rather than fight it. The
-   root's `color-scheme: dark` gives the popup a dark calendar for free; the
-   indicator glyph ships black, so it needs inverting to be visible at all. */
-.datepick {
-  appearance: none;
-  background: none;
+/* Our own trigger. The native input sits inside it, invisible but still in
+   layout so showPicker() has something to anchor the calendar to. */
+.datefield {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--xxs);
+  height: 32px;
+  padding: 0 var(--xxs);
   border: 1px solid var(--hairline);
   border-radius: var(--r-none);
-  padding: 0 var(--xxs);
-  height: 32px;
   color: var(--body);
-  font: inherit;
   font-size: 12px;
-  letter-spacing: 0.4px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
   cursor: pointer;
+  user-select: none;
 }
 
-.datepick:hover {
+.datefield:hover {
   color: var(--ink);
   border-color: var(--muted);
 }
 
-.datepick::-webkit-calendar-picker-indicator {
-  filter: invert(1);
-  opacity: 0.45;
-  cursor: pointer;
+.datefield .chevron {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1;
 }
 
-.datepick::-webkit-calendar-picker-indicator:hover {
-  opacity: 1;
+.datefield:hover .chevron {
+  color: var(--ink);
 }
 
-/* Safari renders these as separate fields with their own spacing. */
-.datepick::-webkit-datetime-edit {
+/* Present for the popup only. Zero-sized rather than display:none, which would
+   make showPicker() throw. */
+.datefield input[type='date'] {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
   padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Separated from the period switcher by a hairline: it is a jump, not a mode. */
@@ -409,6 +421,164 @@ body {
 
 .covered .what {
   color: var(--ink);
+}
+
+/* ── Goals ──────────────────────────────────────────────────────────────── */
+
+.goals-intro {
+  color: var(--body);
+  font-size: 16px;
+  padding-bottom: var(--md);
+}
+
+.goal-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xs);
+  max-width: 62ch;
+}
+
+.goal-form-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, auto)) minmax(0, 1fr);
+  gap: var(--xxs);
+}
+
+.goal-form input[type='text'],
+.goal-form select {
+  appearance: none;
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  padding: 0 var(--xs);
+  height: 44px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+}
+
+.goal-form select {
+  /* The native arrow is a black glyph on a dark field; ours is drawn instead. */
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 16px) 20px, calc(100% - 11px) 20px;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: var(--md);
+  cursor: pointer;
+}
+
+.goal-form input::placeholder,
+.goal-form textarea::placeholder {
+  color: var(--muted);
+}
+
+/* One hairline-divided row per goal, matching the sources list. */
+.goals {
+  display: flex;
+  flex-direction: column;
+}
+
+.goal {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
+  gap: var(--xs);
+  align-items: baseline;
+  padding: var(--xs) 0;
+  border-top: 1px solid var(--hairline);
+}
+
+.goal:last-child {
+  border-bottom: 1px solid var(--hairline);
+}
+
+.goal-meta {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.goal[data-category='career'] .goal-meta {
+  color: var(--primary);
+}
+
+.goal[data-category='craft'] .goal-meta {
+  color: var(--semantic-info);
+}
+
+.goal[data-category='impact'] .goal-meta {
+  color: var(--semantic-success);
+}
+
+.goal[data-category='intrinsic'] .goal-meta {
+  color: var(--semantic-warning);
+}
+
+.goal-title {
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.goal-sub {
+  display: block;
+  padding-top: var(--xxxs);
+  font-size: 13px;
+  color: var(--body);
+}
+
+.goal-why {
+  display: block;
+  padding-top: var(--xxxs);
+  font-size: 13px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* A goal that is not active reads as set aside without being hidden. */
+.goal[data-status='paused'],
+.goal[data-status='achieved'],
+.goal[data-status='dropped'] {
+  opacity: 0.5;
+}
+
+.goal-actions {
+  display: flex;
+  gap: var(--xxxs);
+}
+
+.goal-actions button,
+.goal-actions select {
+  appearance: none;
+  background: none;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-none);
+  padding: var(--xxxs) var(--xxs);
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.goal-actions button:hover,
+.goal-actions select:hover {
+  color: var(--ink);
+  border-color: var(--muted);
+}
+
+@media (max-width: 640px) {
+  .goal-form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .goal {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ── The agent's take, and disputing it ─────────────────────────────────── */
@@ -702,6 +872,11 @@ textarea::placeholder {
 
   .today-jump {
     padding-left: var(--xs);
+  }
+
+  /* The header gets tight on a phone; the date is already in the page body. */
+  .datefield {
+    display: none;
   }
 
   .shell {

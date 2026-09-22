@@ -9,6 +9,7 @@ import type {
   DayRecord,
   Feedback,
   GitHubDay,
+  Goal,
   Reflection,
   Wrap,
 } from './types.ts';
@@ -212,6 +213,108 @@ export async function saveReflection(
     RETURNING period, key, body, energy, updated_at
   `;
   return toReflection(rows[0]!);
+}
+
+type GoalRow = {
+  id: string;
+  title: string;
+  category: Goal['category'];
+  horizon: Goal['horizon'];
+  why: string;
+  measure: string;
+  status: Goal['status'];
+  sort: number;
+  created_at: Date;
+  updated_at: Date;
+};
+
+function toGoal(row: GoalRow): Goal {
+  return {
+    id: row.id,
+    title: row.title,
+    category: row.category,
+    horizon: row.horizon,
+    why: row.why,
+    measure: row.measure,
+    status: row.status,
+    sort: row.sort,
+    createdAt: row.created_at.toISOString(),
+    updatedAt: row.updated_at.toISOString(),
+  };
+}
+
+const GOAL_COLUMNS = `id, title, category, horizon, why, measure, status, sort,
+                      created_at, updated_at`;
+
+export async function listGoals(): Promise<Goal[]> {
+  const rows = await db()<GoalRow[]>`
+    SELECT ${db().unsafe(GOAL_COLUMNS)}
+      FROM goals
+     WHERE user_id = ${USER}
+     ORDER BY
+       CASE status WHEN 'active' THEN 0 WHEN 'paused' THEN 1
+                   WHEN 'achieved' THEN 2 ELSE 3 END,
+       sort, created_at
+  `;
+  return rows.map(toGoal);
+}
+
+/** Only what the agent should be judging a day against. */
+export async function activeGoals(): Promise<Goal[]> {
+  const rows = await db()<GoalRow[]>`
+    SELECT ${db().unsafe(GOAL_COLUMNS)}
+      FROM goals
+     WHERE user_id = ${USER} AND status = 'active'
+     ORDER BY category, sort, created_at
+  `;
+  return rows.map(toGoal);
+}
+
+export async function createGoal(
+  input: Pick<Goal, 'title' | 'category' | 'horizon' | 'why' | 'measure'>,
+): Promise<Goal> {
+  const rows = await db()<GoalRow[]>`
+    INSERT INTO goals (user_id, title, category, horizon, why, measure)
+    VALUES (${USER}, ${input.title}, ${input.category}, ${input.horizon},
+            ${input.why}, ${input.measure})
+    RETURNING ${db().unsafe(GOAL_COLUMNS)}
+  `;
+  return toGoal(rows[0]!);
+}
+
+/**
+ * Patch only the fields present, so the UI can send partial edits (a status
+ * flip on its own, say). COALESCE keeps an absent field at its current value;
+ * an empty string is a real value and does clear `why` or `measure`.
+ */
+export async function updateGoal(
+  id: string,
+  patch: Partial<
+    Pick<Goal, 'title' | 'category' | 'horizon' | 'why' | 'measure' | 'status' | 'sort'>
+  >,
+): Promise<Goal | null> {
+  const sql = db();
+  const rows = await sql<GoalRow[]>`
+    UPDATE goals SET
+      title      = coalesce(${patch.title ?? null}::text, title),
+      category   = coalesce(${patch.category ?? null}::text, category),
+      horizon    = coalesce(${patch.horizon ?? null}::text, horizon),
+      why        = coalesce(${patch.why ?? null}::text, why),
+      measure    = coalesce(${patch.measure ?? null}::text, measure),
+      status     = coalesce(${patch.status ?? null}::text, status),
+      sort       = coalesce(${patch.sort ?? null}::int, sort),
+      updated_at = now()
+     WHERE id = ${id} AND user_id = ${USER}
+    RETURNING ${sql.unsafe(GOAL_COLUMNS)}
+  `;
+  return rows[0] ? toGoal(rows[0]) : null;
+}
+
+export async function deleteGoal(id: string): Promise<boolean> {
+  const rows = await db()`
+    DELETE FROM goals WHERE id = ${id} AND user_id = ${USER} RETURNING id
+  `;
+  return rows.length > 0;
 }
 
 type FeedbackRow = {

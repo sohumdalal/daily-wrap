@@ -29,8 +29,13 @@ each query bounded with the day's real UTC offset so a local day is a local day.
 headline   a terse label, ≤6 words — used in a rollup's list of days
 did        3–5 bullets, grouped by thread of work, not one per artifact
 learned    2–3 sentences — the agent's read on what the period taught you
-grew       0–2 bullets — a change in how you work, judge or decide
+grew       0–2 bullets — where to improve next, measured against your goals
 ```
+
+The prompts you typed are the **primary** evidence; GitHub is corroboration.
+Two people can ship the same diff and have had completely different days, and
+only the prompts show how you framed the problem, when you changed your mind,
+and what you refused to accept.
 
 `learned` is the point. It is a paragraph rather than a list because it is an
 argument, and it sits directly beside the reflection you write yourself — the
@@ -44,6 +49,16 @@ work rather than describing every day as though it began from nothing.
 **Sources** are derived from collected data only, never from model output — every
 row is a real URL from the GitHub API or a Claude transcript, so a wrap can be
 wrong about a sentence but never about a link.
+
+### Goals
+
+The **Goals** tab holds what you're trying to become — by category (career,
+craft, impact, personal, and the intrinsic *why*) and horizon (quarter, year,
+long term), each with an optional measure and the reason it matters to you.
+
+Active goals are an input to every wrap. That is what lets *where to improve*
+be measured against your own direction rather than a generic idea of a good
+engineer — including saying plainly when a day of real work moved none of them.
 
 ### Disagreeing
 

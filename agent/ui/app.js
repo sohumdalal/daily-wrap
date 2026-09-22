@@ -7,11 +7,37 @@
 
 const $ = (id) => document.getElementById(id);
 
+const CATEGORY_LABEL = {
+  career: 'Career',
+  craft: 'Craft',
+  impact: 'Impact',
+  personal: 'Personal',
+  intrinsic: 'Why',
+};
+
+const HORIZON_LABEL = {
+  quarter: 'this quarter',
+  year: 'this year',
+  long: 'long term',
+};
+
 const el = {
   shell: $('shell'),
+  goalsView: $('goals-view'),
+  goalsTab: $('goals-tab'),
+  goalForm: $('goal-form'),
+  goalTitle: $('goal-title'),
+  goalCategory: $('goal-category'),
+  goalHorizon: $('goal-horizon'),
+  goalMeasure: $('goal-measure'),
+  goalWhy: $('goal-why'),
+  goalList: $('goal-list'),
+  goalsEmpty: $('goals-empty'),
   periods: $('periods'),
   todayJump: $('today-jump'),
   datepick: $('datepick'),
+  datefield: $('datefield'),
+  datefieldLabel: $('datefield-label'),
   prev: $('prev'),
   next: $('next'),
   dateLabel: $('date-label'),
@@ -32,6 +58,7 @@ const el = {
   correctionsList: $('corrections-list'),
   grew: $('grew'),
   grewSection: $('grew-section'),
+  grewLabel: $('grew-label'),
   covered: $('covered'),
   coveredSection: $('covered-section'),
   sources: $('sources'),
@@ -47,7 +74,15 @@ const el = {
   note: $('note'),
 };
 
-let state = { period: 'day', key: null, today: null, view: null, busy: false };
+let state = {
+  /** 'wrap' shows a period; 'goals' shows the goals page. */
+  mode: 'wrap',
+  period: 'day',
+  key: null,
+  today: null,
+  view: null,
+  busy: false,
+};
 
 // ── Period key arithmetic (mirrors agent/time.ts, for navigation only) ─────
 
@@ -304,14 +339,16 @@ function render() {
   const view = state.view;
   if (!view) return;
 
-  // The picker always shows a real date for the current key, and cannot reach
+  // The picker always holds a real date for the current key, and cannot reach
   // into the future, where there is nothing to wrap.
   el.datepick.value = view.span.from;
   el.datepick.max = state.today;
-
-  for (const button of el.periods.querySelectorAll('button')) {
-    button.setAttribute('aria-current', String(button.dataset.period === state.period));
-  }
+  el.datefieldLabel.textContent = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'UTC',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(`${view.span.from}T12:00:00Z`));
 
   el.dateLabel.textContent = view.label;
   el.todayBadge.hidden = view.key !== keyForToday(state.period, state.today);
@@ -319,6 +356,11 @@ function render() {
   el.next.disabled = view.key >= keyForToday(state.period, state.today);
 
   el.wrap.textContent = state.period === 'day' ? 'Wrap the day' : `Wrap the ${state.period}`;
+  // Forward-looking, so it names the period that comes next, not this one.
+  el.grewLabel.textContent =
+    state.period === 'day'
+      ? 'Where to improve tomorrow'
+      : `Where to improve next ${state.period}`;
   el.collect.hidden = state.period !== 'day';
 
   renderSpecs(view);
@@ -327,6 +369,86 @@ function render() {
   renderSources(view);
   renderReflection(view);
   renderProvenance(view);
+}
+
+function goalRow(goal) {
+  const row = document.createElement('div');
+  row.className = 'goal';
+  row.dataset.category = goal.category;
+  row.dataset.status = goal.status;
+
+  const meta = document.createElement('div');
+  meta.className = 'goal-meta';
+  meta.textContent = CATEGORY_LABEL[goal.category] ?? goal.category;
+
+  const body = document.createElement('div');
+  const title = document.createElement('span');
+  title.className = 'goal-title';
+  title.textContent = goal.title;
+  body.append(title);
+
+  const sub = document.createElement('span');
+  sub.className = 'goal-sub';
+  sub.textContent = [HORIZON_LABEL[goal.horizon] ?? goal.horizon, goal.measure]
+    .filter(Boolean)
+    .join(' · ');
+  body.append(sub);
+
+  if (goal.why) {
+    const why = document.createElement('span');
+    why.className = 'goal-why';
+    why.textContent = goal.why;
+    body.append(why);
+  }
+
+  const actions = document.createElement('div');
+  actions.className = 'goal-actions';
+
+  const status = document.createElement('select');
+  status.setAttribute('aria-label', 'Status');
+  for (const value of ['active', 'paused', 'achieved', 'dropped']) {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = value;
+    option.selected = value === goal.status;
+    status.append(option);
+  }
+  status.addEventListener('change', () => patchGoal(goal.id, { status: status.value }));
+
+  const remove = document.createElement('button');
+  remove.type = 'button';
+  remove.textContent = 'Delete';
+  remove.addEventListener('click', async () => {
+    // Deleting changes what every future wrap is judged against, so confirm.
+    if (!confirm(`Delete "${goal.title}"? Future wraps stop measuring against it.`)) return;
+    await api(`/api/goals/${goal.id}`, { method: 'DELETE' }).catch((err) =>
+      note(err.message, true),
+    );
+    loadGoals();
+  });
+
+  actions.append(status, remove);
+  row.append(meta, body, actions);
+  return row;
+}
+
+async function loadGoals() {
+  try {
+    const { goals } = await api('/api/goals');
+    el.goalList.replaceChildren(...goals.map(goalRow));
+    el.goalsEmpty.hidden = goals.length > 0;
+  } catch (err) {
+    note(err.message, true);
+  }
+}
+
+async function patchGoal(id, patch) {
+  try {
+    await api(`/api/goals/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+    loadGoals();
+  } catch (err) {
+    note(err.message, true);
+  }
 }
 
 function note(message, warn = false) {
@@ -421,25 +543,81 @@ function queueSave() {
 // ── Routing ────────────────────────────────────────────────────────────────
 
 function go(period, key, replace = false) {
+  state.mode = 'wrap';
   const hash = `#${period}/${key}`;
   if (replace) history.replaceState(null, '', hash);
   else location.hash = hash;
   if (replace) applyHash();
 }
 
+/** Swap which of the two shells is on screen, and mark the nav. */
+function applyMode() {
+  const goals = state.mode === 'goals';
+  el.goalsView.hidden = !goals;
+  el.shell.hidden = goals;
+  el.goalsTab.setAttribute('aria-current', String(goals));
+  el.datefield.hidden = goals;
+  for (const button of el.periods.querySelectorAll('button[data-period]')) {
+    button.setAttribute(
+      'aria-current',
+      String(!goals && button.dataset.period === state.period),
+    );
+  }
+}
+
 function applyHash() {
-  const [period, key] = location.hash.replace(/^#/, '').split('/');
+  const raw = location.hash.replace(/^#/, '');
+
+  if (raw === 'goals') {
+    state.mode = 'goals';
+    applyMode();
+    note(null);
+    loadGoals();
+    return;
+  }
+
+  const [period, key] = raw.split('/');
   const valid = ['day', 'week', 'month', 'year'].includes(period) && key;
+  state.mode = 'wrap';
   state.period = valid ? period : 'day';
   state.key = valid ? key : keyForToday(state.period, state.today);
+  applyMode();
   load().catch((err) => note(err.message, true));
 }
 
 // ── Events ─────────────────────────────────────────────────────────────────
 
 el.periods.addEventListener('click', (e) => {
+  if (e.target.dataset?.view === 'goals') {
+    location.hash = '#goals';
+    return;
+  }
   const period = e.target.dataset?.period;
   if (period) go(period, keyContaining(period, state.key, state.today));
+});
+
+el.goalForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const title = el.goalTitle.value.trim();
+  if (!title) return;
+  try {
+    await api('/api/goals', {
+      method: 'POST',
+      body: JSON.stringify({
+        title,
+        category: el.goalCategory.value,
+        horizon: el.goalHorizon.value,
+        measure: el.goalMeasure.value.trim(),
+        why: el.goalWhy.value.trim(),
+      }),
+    });
+    el.goalForm.reset();
+    el.goalHorizon.value = 'year';
+    el.goalTitle.focus();
+    loadGoals();
+  } catch (err) {
+    note(err.message, true);
+  }
 });
 
 /**
@@ -464,6 +642,17 @@ async function goToTodaysReflection() {
 }
 
 el.todayJump.addEventListener('click', goToTodaysReflection);
+
+// Clicking our trigger opens the native calendar. showPicker() is the only way
+// to do that without the browser's own control being visible; where it is
+// unsupported, focusing the input still lets the keyboard through.
+el.datefield.addEventListener('click', () => {
+  try {
+    el.datepick.showPicker();
+  } catch {
+    el.datepick.focus();
+  }
+});
 
 // Picking a date jumps to the period that contains it, so the calendar works
 // the same whether you are looking at a day, a week, a month or a year.
@@ -530,6 +719,11 @@ el.energy.addEventListener('click', (e) => {
 });
 
 document.addEventListener('keydown', (e) => {
+  // The goals page is a form; leave its keys alone entirely.
+  if (state.mode === 'goals') {
+    if (e.key === 'Escape') history.back();
+    return;
+  }
   // Never steal keys from either text box.
   if (e.target === el.reflection) {
     if (e.key === 'Escape') el.reflection.blur();

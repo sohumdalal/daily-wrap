@@ -26,7 +26,14 @@ import {
   type Period,
 } from './time.ts';
 import { hasActivity, NoDaysToRollUp, writeDayWrap, writeRollup } from './wrap.ts';
-import type { ClaudeDay, GitHubDay } from './types.ts';
+import type { Goal } from './types.ts';
+import {
+  GOAL_CATEGORIES,
+  GOAL_HORIZONS,
+  GOAL_STATUSES,
+  type ClaudeDay,
+  type GitHubDay,
+} from './types.ts';
 
 export const routes = new Hono();
 
@@ -231,6 +238,97 @@ routes.post('/api/view/:period/:key/disagree', async (c) => {
   }
 
   return c.json({ ...(await view(t.period, t.key)), errors: [] });
+});
+
+// ── Goals ──────────────────────────────────────────────────────────────────
+
+type GoalPatch = Partial<
+  Pick<Goal, 'title' | 'category' | 'horizon' | 'why' | 'measure' | 'status' | 'sort'>
+>;
+
+routes.get('/api/goals', async (c) => c.json({ goals: await store.listGoals() }));
+
+/**
+ * Read a goal payload. An absent field falls back to a default; a field that is
+ * present but invalid is an error. Coercing a misspelled category to 'career'
+ * would silently discard what the caller actually said.
+ */
+function readGoalBody(
+  body: Record<string, unknown>,
+): { bad: string } | { ok: GoalPatch } {
+  const patch: GoalPatch = {};
+  const bad: string[] = [];
+
+  const str = (name: 'title' | 'why' | 'measure', max: number): void => {
+    const value = body[name];
+    if (value === undefined) return;
+    if (typeof value !== 'string') bad.push(name);
+    else patch[name] = value.trim().slice(0, max);
+  };
+
+  const oneOf = <K extends 'category' | 'horizon' | 'status'>(
+    name: K,
+    allowed: readonly string[],
+  ): void => {
+    const value = body[name];
+    if (value === undefined) return;
+    if (typeof value !== 'string' || !allowed.includes(value)) {
+      bad.push(`${name} must be one of ${allowed.join(', ')}`);
+      return;
+    }
+    patch[name] = value as GoalPatch[K];
+  };
+
+  str('title', 200);
+  str('why', 1000);
+  str('measure', 300);
+  oneOf('category', GOAL_CATEGORIES);
+  oneOf('horizon', GOAL_HORIZONS);
+  oneOf('status', GOAL_STATUSES);
+
+  if (body.sort !== undefined) {
+    if (typeof body.sort === 'number' && Number.isInteger(body.sort)) {
+      patch.sort = body.sort;
+    } else {
+      bad.push('sort must be an integer');
+    }
+  }
+
+  return bad.length ? { bad: bad.join('; ') } : { ok: patch };
+}
+
+routes.post('/api/goals', async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+  const read = readGoalBody(body);
+  if ('bad' in read) return c.json({ error: read.bad }, 400);
+  if (!read.ok.title) return c.json({ error: 'a goal needs a title' }, 400);
+
+  const goal = await store.createGoal({
+    title: read.ok.title,
+    category: read.ok.category ?? 'career',
+    horizon: read.ok.horizon ?? 'year',
+    why: read.ok.why ?? '',
+    measure: read.ok.measure ?? '',
+  });
+  return c.json({ goal });
+});
+
+routes.patch('/api/goals/:id', async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+  const read = readGoalBody(body);
+  if ('bad' in read) return c.json({ error: read.bad }, 400);
+  if (read.ok.title !== undefined && !read.ok.title) {
+    return c.json({ error: 'a goal needs a title' }, 400);
+  }
+  const goal = await store.updateGoal(c.req.param('id'), read.ok);
+  if (!goal) return c.json({ error: 'no such goal' }, 404);
+  return c.json({ goal });
+});
+
+routes.delete('/api/goals/:id', async (c) => {
+  const gone = await store.deleteGoal(c.req.param('id'));
+  if (!gone) return c.json({ error: 'no such goal' }, 404);
+  return c.json({ ok: true });
 });
 
 routes.get('/api/index/:period', async (c) => {

@@ -21,19 +21,81 @@
           <button data-period="week">Week</button>
           <button data-period="month">Month</button>
           <button data-period="year">Year</button>
+          <button data-view="goals" id="goals-tab">Goals</button>
         </div>
-        <input
-          class="datepick"
-          type="date"
-          id="datepick"
-          aria-label="Jump to a date"
-          title="Jump to a date"
-        />
+        <!-- The native date input cannot be styled to fit: its text is
+             browser-rendered and its indicator ships as a black glyph. So the
+             visible control is ours, and the input is kept only for the native
+             calendar popup, opened with showPicker(). -->
+        <span class="datefield" id="datefield" title="Jump to a date">
+          <span id="datefield-label">—</span>
+          <span class="chevron" aria-hidden="true">▾</span>
+          <input type="date" id="datepick" aria-label="Jump to a date" />
+        </span>
         <button class="today-jump" id="today-jump" title="Today's reflection (T)">
           Today
         </button>
       </div>
     </nav>
+
+    <main class="shell" id="goals-view" hidden>
+      <header class="hero">
+        <div class="hero-date"><span class="label">Goals</span></div>
+      </header>
+
+      <p class="take goals-intro">
+        What you're trying to become. Every wrap is written against these, so a
+        day that moved none of them gets told so.
+      </p>
+
+      <section class="section">
+        <form class="goal-form" id="goal-form">
+          <input
+            id="goal-title"
+            type="text"
+            placeholder="Ship a system other teams build on"
+            maxlength="200"
+            required
+          />
+          <div class="goal-form-row">
+            <select id="goal-category" aria-label="Category">
+              <option value="career">Career</option>
+              <option value="craft">Craft</option>
+              <option value="impact">Impact</option>
+              <option value="personal">Personal</option>
+              <option value="intrinsic">Why it matters</option>
+            </select>
+            <select id="goal-horizon" aria-label="Horizon">
+              <option value="quarter">This quarter</option>
+              <option value="year" selected>This year</option>
+              <option value="long">Long term</option>
+            </select>
+            <input
+              id="goal-measure"
+              type="text"
+              placeholder="How you'd know (optional)"
+              maxlength="300"
+            />
+          </div>
+          <textarea
+            id="goal-why"
+            rows="2"
+            maxlength="1000"
+            placeholder="Why does this matter to you? The answer keeps it from becoming someone else's goal."
+          ></textarea>
+          <div><button class="btn" type="submit">Add goal</button></div>
+        </form>
+      </section>
+
+      <section class="section" id="goal-list-section">
+        <div class="section-head"><span class="label">Your goals</span></div>
+        <div class="goals" id="goal-list"></div>
+        <p class="caption" id="goals-empty" hidden>
+          Nothing set yet. Wraps will read your days without a direction to
+          measure them against.
+        </p>
+      </section>
+    </main>
 
     <main class="shell" id="shell">
       <!-- The day in numbers is the top of the page. -->
@@ -106,7 +168,9 @@
       </section>
 
       <section class="section growth" id="grew-section" hidden>
-        <div class="section-head"><span class="label">Where you grew</span></div>
+        <div class="section-head">
+          <span class="label" id="grew-label">Where to improve tomorrow</span>
+        </div>
         <ul class="bullets" id="grew"></ul>
       </section>
 
