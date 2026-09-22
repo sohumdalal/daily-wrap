@@ -462,6 +462,11 @@ textarea::placeholder {
   text-transform: uppercase;
 }
 
+#provenance {
+  padding-top: var(--xs);
+  margin: 0;
+}
+
 .note {
   padding-top: var(--sm);
   font-size: 12px;

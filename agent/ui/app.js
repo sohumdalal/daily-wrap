@@ -26,6 +26,7 @@ const el = {
   grewSection: $('grew-section'),
   covered: $('covered'),
   coveredSection: $('covered-section'),
+  provenance: $('provenance'),
   reflection: $('reflection'),
   reflectionLabel: $('reflection-label'),
   energy: $('energy'),
@@ -221,6 +222,27 @@ function renderReflection(view) {
     : '';
 }
 
+const clock = (iso) =>
+  new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+/**
+ * Where this screen's contents came from and when. GitHub's commit search is
+ * indexed with a lag, so a count can be short simply because the day was read
+ * too early — saying when it was read makes that visible instead of puzzling.
+ */
+function renderProvenance(view) {
+  const parts = [];
+  if (view.collectedAt) parts.push(`Sources read ${clock(view.collectedAt)}`);
+  if (view.wrap) {
+    parts.push(
+      `wrapped ${clock(view.wrap.generatedAt)}` +
+        (view.wrap.model ? ` by ${view.wrap.model}` : ''),
+    );
+  }
+  el.provenance.hidden = parts.length === 0;
+  el.provenance.textContent = parts.join(' · ');
+}
+
 function render() {
   const view = state.view;
   if (!view) return;
@@ -241,6 +263,7 @@ function render() {
   renderWrap(view);
   renderCovered(view);
   renderReflection(view);
+  renderProvenance(view);
 }
 
 function note(message, warn = false) {

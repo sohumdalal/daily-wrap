@@ -122,3 +122,20 @@ sign-in still sits at the front door.
 - ✅ Weekly / monthly / yearly rollups written from the days beneath them
 - ⬜ Growth trendlines across periods
 - ⬜ A year view worth printing
+
+## Keeping Postgres running (macOS)
+
+`brew services` is broken on Homebrew 6.0.12 — a formula uses `stop_timeout`,
+which that version dropped, and the command dies while iterating every formula.
+It has nothing to do with Postgres. Install the LaunchAgent the formula already
+ships, which is what `brew services start` would have done:
+
+```bash
+cp /opt/homebrew/opt/postgresql@16/homebrew.mxcl.postgresql@16.plist \
+   ~/Library/LaunchAgents/
+launchctl load -w ~/Library/LaunchAgents/homebrew.mxcl.postgresql@16.plist
+pg_isready -h localhost -p 5432
+```
+
+`RunAtLoad` + `KeepAlive` mean it starts at login and restarts if it dies. To
+undo: `launchctl unload -w ~/Library/LaunchAgents/homebrew.mxcl.postgresql@16.plist`.
