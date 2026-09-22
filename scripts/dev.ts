@@ -56,12 +56,21 @@ if (!fromShell.has('GITHUB_TOKEN')) {
 process.env.PORT ??= '3002';
 process.env.GITHUB_USERNAME ??= 'sohumdalal';
 
-// Local Postgres (Homebrew on macOS). In production the `daily-wrap-db`
-// knowledge entry declared in astropods.yml injects these.
-process.env.POSTGRES_HOST ??= 'localhost';
-process.env.POSTGRES_PORT ??= '5432';
-process.env.POSTGRES_DB ??= 'daily_wrap';
-process.env.POSTGRES_USER ??= process.env.USER ?? 'postgres';
-process.env.POSTGRES_PASSWORD ??= '';
+// Which database this laptop talks to.
+//
+// Set POSTGRES_URL to point at the shared store the deployed agent uses — a
+// Supabase or Neon connection string — and this process writes the days it
+// collects straight into it, which is the only way the deployed copy ever sees
+// Claude Code activity. Leave it unset for the local Homebrew Postgres.
+//
+// The defaults below are only applied when there is no URL, so a URL never
+// half-loses to a stray localhost default.
+if (!process.env.POSTGRES_URL) {
+  process.env.POSTGRES_HOST ??= 'localhost';
+  process.env.POSTGRES_PORT ??= '5432';
+  process.env.POSTGRES_DB ??= 'daily_wrap';
+  process.env.POSTGRES_USER ??= process.env.USER ?? 'postgres';
+  process.env.POSTGRES_PASSWORD ??= '';
+}
 
 await import('../agent/index.ts');

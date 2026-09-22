@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { serveStatic } from 'hono/bun';
 import { config, isDev } from './config.ts';
-import { ping } from './db/client.ts';
+import { describeTarget, ping } from './db/client.ts';
 import { runMigrations } from './db/migrations.ts';
 import { routes } from './routes.ts';
 
@@ -32,7 +32,8 @@ Bun.serve({
 });
 
 console.log(
-  `Daily Wrap on :${config.port} — ${config.timezone}${isDev ? ' (dev)' : ''}`,
+  `Daily Wrap on :${config.port} — ${config.timezone}` +
+    ` — db ${describeTarget()}${isDev ? ' (dev)' : ''}`,
 );
 
 // Initialize the database in the background with retry/backoff. The Postgres

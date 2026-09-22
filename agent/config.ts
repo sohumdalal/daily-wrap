@@ -1,5 +1,6 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { describeTarget, targetIsLocal } from './db/client.ts';
 
 /**
  * Env → config. Every value here is either injected by Astropods (see the
@@ -79,5 +80,7 @@ export function readiness() {
     claudeHome: config.claude.home,
     llm: Boolean(config.llm.anthropicKey),
     model: config.llm.model,
+    database: describeTarget(),
+    databaseIsLocal: targetIsLocal(),
   };
 }

@@ -160,6 +160,18 @@ body {
   transform: rotate(90deg);
 }
 
+.dbbadge {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  white-space: nowrap;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--semantic-info);
+}
+
 .brandmenu {
   position: absolute;
   top: calc(100% + var(--xxs));

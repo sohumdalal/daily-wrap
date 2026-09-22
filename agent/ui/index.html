@@ -28,6 +28,9 @@
           <span class="tick" aria-hidden="true"></span>
           Daily Wrap
         </button>
+        <!-- Only rendered when the database is not on this machine. Two copies
+             of this UI look identical; the data underneath may not be. -->
+        <span class="dbbadge" id="dbbadge" hidden></span>
         <div class="brandmenu" id="brandmenu" role="menu" hidden>
           <button role="menuitem" type="button" data-view="goals" id="goals-tab">
             Goals
