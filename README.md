@@ -171,14 +171,8 @@ sign-in still sits at the front door.
 ### Sharing one database with the deployed agent
 
 Point both copies at the same Postgres and the laptop can collect while the
-deployed agent serves. Two ways to bind it:
-
-- **Knowledge store (preferred).** Connect the database under **Knowledge >
-  Add store**, then set `daily-wrap-db` to **Shared** at deploy.
-- **`POSTGRES_URL` input.** Set it at deploy and it overrides whatever the
-  knowledge store injects. Use this when the store cannot be bound at deploy
-  time; the declared store is still provisioned, so it costs compute while
-  going unused.
+deployed agent serves. Connect the database under **Knowledge > Add store**,
+then set `daily-wrap-db` to **Shared** at deploy.
 
 ## Status
 
