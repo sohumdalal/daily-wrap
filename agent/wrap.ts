@@ -19,6 +19,7 @@ import type {
   Goal,
   Reflection,
   Wrap,
+  WrapReason,
 } from './types.ts';
 
 /** How many preceding days of wraps the model sees, for continuity. */
@@ -381,6 +382,8 @@ export async function writeDayWrap(opts: {
   claude: ClaudeDay | null;
   github: GitHubDay | null;
   reflection: Reflection | null;
+  /** Recorded against the version this produces. */
+  reason?: WrapReason;
 }): Promise<Wrap> {
   // Oldest first, and excluding today — a day is context for the days after it.
   const [priors, feedback, goals] = await Promise.all([
@@ -406,10 +409,17 @@ they learned and how they grew; the record above is only evidence):\n${opts.refl
     schema: WrapSchema,
   });
 
-  return store.saveWrap({ period: 'day', key: opts.day, model, ...value });
+  return store.saveWrap(
+    { period: 'day', key: opts.day, model, ...value },
+    opts.reason ?? 'wrap',
+  );
 }
 
-export async function writeRollup(period: Period, key: string): Promise<Wrap> {
+export async function writeRollup(
+  period: Period,
+  key: string,
+  reason: WrapReason = 'wrap',
+): Promise<Wrap> {
   if (period === 'day') throw new Error('use writeDayWrap for a single day');
   const { from, to } = spanOf(period, key);
 
@@ -460,5 +470,5 @@ export async function writeRollup(period: Period, key: string): Promise<Wrap> {
     maxTokens: 8192,
   });
 
-  return store.saveWrap({ period, key, model, ...value });
+  return store.saveWrap({ period, key, model, ...value }, reason);
 }

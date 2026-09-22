@@ -126,6 +126,50 @@ const MIGRATIONS: Array<{ id: string; sql: string }> = [
         ON goals(user_id, status, category, sort);
     `,
   },
+  {
+    // Append-only history of every wrap ever written, including the current
+    // one — so the table alone is the complete record and nothing has to be
+    // reconstructed by joining against `wraps`.
+    //
+    // `reason` is the interesting column: it separates a plain re-wrap from a
+    // rewrite the person forced by disagreeing, which is what makes this a
+    // record of how the agent's read of them changed rather than just a log.
+    //
+    // Existing wraps are backfilled as version 1 so no history starts partial.
+    id: '0005_wrap_versions',
+    sql: `
+      CREATE TABLE IF NOT EXISTS wrap_versions (
+        id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id      TEXT NOT NULL DEFAULT 'default',
+        period       TEXT NOT NULL CHECK (period IN ('day','week','month','year')),
+        key          TEXT NOT NULL,
+        version      INTEGER NOT NULL,
+        headline     TEXT NOT NULL DEFAULT '',
+        did          JSONB NOT NULL DEFAULT '[]'::jsonb,
+        learned      JSONB NOT NULL DEFAULT '""'::jsonb,
+        grew         JSONB NOT NULL DEFAULT '[]'::jsonb,
+        model        TEXT,
+        reason       TEXT NOT NULL DEFAULT 'wrap'
+                     CHECK (reason IN ('wrap','disagree')),
+        generated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE (period, key, user_id, version)
+      );
+      CREATE INDEX IF NOT EXISTS wrap_versions_for_key
+        ON wrap_versions(user_id, period, key, version DESC);
+
+      INSERT INTO wrap_versions
+             (user_id, period, key, version, headline, did, learned, grew, model,
+              reason, generated_at)
+      SELECT user_id, period, key, 1, headline, did, learned, grew, model,
+             'wrap', generated_at
+        FROM wraps
+       WHERE NOT EXISTS (
+         SELECT 1 FROM wrap_versions v
+          WHERE v.period = wraps.period AND v.key = wraps.key
+            AND v.user_id = wraps.user_id
+       );
+    `,
+  },
 ];
 
 export async function runMigrations(): Promise<void> {

@@ -101,6 +101,7 @@ async function view(period: Period, key: string) {
     wrap,
     reflection,
     feedback: await store.getFeedback(period, key),
+    versions: await store.countWrapVersions(period, key),
   };
 
   if (period === 'day') {
@@ -228,9 +229,10 @@ routes.post('/api/view/:period/:key/disagree', async (c) => {
         claude: record?.claude ?? null,
         github: record?.github ?? null,
         reflection: await store.getReflection('day', t.key),
+        reason: 'disagree',
       });
     } else {
-      await writeRollup(t.period, t.key);
+      await writeRollup(t.period, t.key, 'disagree');
     }
   } catch (err) {
     if (!(err instanceof NoDaysToRollUp)) throw err;
@@ -329,6 +331,12 @@ routes.delete('/api/goals/:id', async (c) => {
   const gone = await store.deleteGoal(c.req.param('id'));
   if (!gone) return c.json({ error: 'no such goal' }, 404);
   return c.json({ ok: true });
+});
+
+routes.get('/api/versions/:period/:key', async (c) => {
+  const t = target(c.req.param('period'), c.req.param('key'));
+  if (!t) return c.json({ error: 'bad period or key' }, 400);
+  return c.json({ versions: await store.listWrapVersions(t.period, t.key) });
 });
 
 routes.get('/api/index/:period', async (c) => {

@@ -176,6 +176,15 @@ export type Goal = {
   updatedAt: string;
 };
 
+/** Why a version of a wrap exists. */
+export type WrapReason = 'wrap' | 'disagree';
+
+/** One historical wrap. Version 1 is the first ever written for that key. */
+export type WrapVersion = Wrap & {
+  version: number;
+  reason: WrapReason;
+};
+
 /**
  * A correction the person made to something the agent wrote. Every wrap
  * written afterwards sees these, which is how the agent's read of them gets

@@ -60,6 +60,18 @@ Active goals are an input to every wrap. That is what lets *where to improve*
 be measured against your own direction rather than a generic idea of a good
 engineer — including saying plainly when a day of real work moved none of them.
 
+### History
+
+`wraps` holds the current wrap; `wrap_versions` is append-only and holds every
+version ever written, including the current one. Re-wrapping a day overwrites
+what you see and appends to the history, and each version records **why** it
+exists — a plain `wrap`, or a `disagree` you forced. Once a key has more than
+one version, the take shows a `N versions` disclosure listing the earlier
+paragraphs.
+
+That is what makes the record show how the agent's read of you changed, rather
+than only where it landed.
+
 ### Disagreeing
 
 If the agent's read of you is wrong, press **Disagree** and say why. The note is

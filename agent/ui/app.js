@@ -64,6 +64,9 @@ const el = {
   disputeCancel: $('dispute-cancel'),
   corrections: $('corrections'),
   correctionsList: $('corrections-list'),
+  history: $('history'),
+  historyToggle: $('history-toggle'),
+  historyList: $('history-list'),
   grew: $('grew'),
   grewSection: $('grew-section'),
   grewLabel: $('grew-label'),
@@ -228,6 +231,13 @@ function renderWrap(view) {
 
   el.corrections.hidden = notes.length === 0;
   if (notes.length) list(el.correctionsList, notes.map((n) => n.note));
+
+  // Only worth offering once there is something earlier to compare against.
+  const count = view.versions ?? 0;
+  el.history.hidden = count < 2;
+  el.historyToggle.textContent = `${count} versions`;
+  el.historyList.hidden = true;
+  el.historyList.replaceChildren();
 }
 
 function renderCovered(view) {
@@ -295,6 +305,53 @@ function renderSources(view) {
       return a;
     }),
   );
+}
+
+/**
+ * The take's history. Fetched only when opened — most days nobody looks, and
+ * the list carries every past paragraph in full.
+ */
+async function toggleHistory() {
+  if (!el.historyList.hidden) {
+    el.historyList.hidden = true;
+    return;
+  }
+  el.historyList.hidden = false;
+  if (el.historyList.childElementCount) return;
+
+  try {
+    const { versions } = await api(`/api/versions/${state.period}/${state.key}`);
+    el.historyList.replaceChildren(
+      ...versions.map((v) => {
+        const entry = document.createElement('div');
+        entry.className = 'history-entry';
+        entry.dataset.reason = v.reason;
+
+        const meta = document.createElement('div');
+        meta.className = 'history-meta';
+        const when = new Date(v.generatedAt);
+        meta.textContent = [
+          `v${v.version}`,
+          v.reason === 'disagree' ? 'after you disagreed' : 'rewrapped',
+          when.toLocaleString([], {
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+          }),
+        ].join(' · ');
+
+        const take = document.createElement('p');
+        take.className = 'history-take';
+        take.textContent = v.learned || '(nothing written for this version)';
+
+        entry.append(meta, take);
+        return entry;
+      }),
+    );
+  } catch (err) {
+    note(err.message, true);
+  }
 }
 
 function renderReflection(view) {
@@ -807,6 +864,7 @@ function showDispute(show) {
 }
 
 el.disagree.addEventListener('click', () => showDispute(el.dispute.hidden));
+el.historyToggle.addEventListener('click', toggleHistory);
 el.disputeCancel.addEventListener('click', () => showDispute(false));
 
 el.disputeSend.addEventListener('click', async () => {

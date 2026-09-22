@@ -12,6 +12,8 @@ import type {
   Goal,
   Reflection,
   Wrap,
+  WrapReason,
+  WrapVersion,
 } from './types.ts';
 
 /** Single-user today, but every row is tagged so that needn't stay true. */
@@ -182,27 +184,87 @@ export async function getWrapsBetween(
   return rows.map(toWrap);
 }
 
+/**
+ * Write a wrap, overwriting the current one and appending to its history.
+ *
+ * `wraps` holds what is current; `wrap_versions` holds every version ever
+ * written, this one included. The duplication is deliberate: the history table
+ * is then complete on its own, and reading the current wrap stays a single-row
+ * lookup. One transaction, because a version number is derived from the
+ * existing rows.
+ */
 export async function saveWrap(
   wrap: Omit<Wrap, 'generatedAt'>,
+  reason: WrapReason = 'wrap',
 ): Promise<Wrap> {
   const sql = db();
-  const rows = await sql<WrapRow[]>`
-    INSERT INTO wraps (period, key, user_id, headline, did, learned, grew, model, generated_at)
-    VALUES (
-      ${wrap.period}, ${wrap.key}, ${USER}, ${wrap.headline},
-      ${sql.json(wrap.did)}, ${sql.json(wrap.learned)}, ${sql.json(wrap.grew)},
-      ${wrap.model}, now()
-    )
-    ON CONFLICT (period, key, user_id) DO UPDATE
-       SET headline = EXCLUDED.headline,
-           did = EXCLUDED.did,
-           learned = EXCLUDED.learned,
-           grew = EXCLUDED.grew,
-           model = EXCLUDED.model,
-           generated_at = EXCLUDED.generated_at
-    RETURNING period, key, headline, did, learned, grew, model, generated_at
+  return sql.begin(async (tx) => {
+    const rows = await tx<WrapRow[]>`
+      INSERT INTO wraps (period, key, user_id, headline, did, learned, grew, model, generated_at)
+      VALUES (
+        ${wrap.period}, ${wrap.key}, ${USER}, ${wrap.headline},
+        ${tx.json(wrap.did)}, ${tx.json(wrap.learned)}, ${tx.json(wrap.grew)},
+        ${wrap.model}, now()
+      )
+      ON CONFLICT (period, key, user_id) DO UPDATE
+         SET headline = EXCLUDED.headline,
+             did = EXCLUDED.did,
+             learned = EXCLUDED.learned,
+             grew = EXCLUDED.grew,
+             model = EXCLUDED.model,
+             generated_at = EXCLUDED.generated_at
+      RETURNING period, key, headline, did, learned, grew, model, generated_at
+    `;
+    const saved = toWrap(rows[0]!);
+
+    await tx`
+      INSERT INTO wrap_versions
+             (user_id, period, key, version, headline, did, learned, grew, model,
+              reason, generated_at)
+      SELECT ${USER}, ${wrap.period}, ${wrap.key},
+             coalesce(max(version), 0) + 1,
+             ${wrap.headline}, ${tx.json(wrap.did)}, ${tx.json(wrap.learned)},
+             ${tx.json(wrap.grew)}, ${wrap.model}, ${reason}, ${saved.generatedAt}
+        FROM wrap_versions
+       WHERE user_id = ${USER} AND period = ${wrap.period} AND key = ${wrap.key}
+    `;
+
+    return saved;
+  });
+}
+
+type WrapVersionRow = WrapRow & { version: number; reason: WrapReason };
+
+/** Every version of one wrap, newest first. */
+export async function listWrapVersions(
+  period: Period,
+  key: string,
+): Promise<WrapVersion[]> {
+  const rows = await db()<WrapVersionRow[]>`
+    SELECT period, key, headline, did, learned, grew, model, generated_at,
+           version, reason
+      FROM wrap_versions
+     WHERE user_id = ${USER} AND period = ${period} AND key = ${key}
+     ORDER BY version DESC
   `;
-  return toWrap(rows[0]!);
+  return rows.map((row) => ({
+    ...toWrap(row),
+    version: row.version,
+    reason: row.reason,
+  }));
+}
+
+/** How many times this key has been written. Cheap enough for every view. */
+export async function countWrapVersions(
+  period: Period,
+  key: string,
+): Promise<number> {
+  const rows = await db()<{ n: number }[]>`
+    SELECT count(*)::int AS n
+      FROM wrap_versions
+     WHERE user_id = ${USER} AND period = ${period} AND key = ${key}
+  `;
+  return rows[0]?.n ?? 0;
 }
 
 type ReflectionRow = {

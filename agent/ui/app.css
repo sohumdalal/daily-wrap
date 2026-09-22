@@ -804,6 +804,68 @@ body {
   padding-bottom: var(--xxs);
 }
 
+/* ── Version history ────────────────────────────────────────────────────── */
+
+.history {
+  padding-top: var(--sm);
+}
+
+.history-toggle {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+}
+
+.history-toggle:hover {
+  color: var(--ink);
+}
+
+.history-list {
+  padding-top: var(--xs);
+}
+
+.history-entry {
+  padding: var(--xs) 0;
+  border-top: 1px solid var(--hairline);
+}
+
+.history-entry:last-child {
+  border-bottom: 1px solid var(--hairline);
+}
+
+.history-meta {
+  display: flex;
+  gap: var(--xxs);
+  align-items: baseline;
+  padding-bottom: var(--xxxs);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* A version you forced by disagreeing is the interesting one. */
+.history-entry[data-reason='disagree'] .history-meta {
+  color: var(--primary);
+}
+
+.history-take {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--body);
+  max-width: 62ch;
+}
+
 /* ── Sources ────────────────────────────────────────────────────────────── */
 
 /* Hairline-divided rows, the same treatment as a race calendar in the system:
