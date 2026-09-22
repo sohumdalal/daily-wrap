@@ -3,11 +3,12 @@
   "version": "0.1.0",
   "type": "module",
   "private": true,
-  "description": "Daily Wrap — reads your day out of Claude Code and GitHub, writes it back as five bullets, and keeps the reflection beside it.",
+  "description": "Daily Wrap \u2014 reads your day out of Claude Code and GitHub, writes it back as five bullets, and keeps the reflection beside it.",
   "scripts": {
     "dev": "bun --watch scripts/dev.ts",
     "start": "bun agent/index.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "nightly": "bun scripts/nightly.ts"
   },
   "main": "./agent/index.ts",
   "dependencies": {

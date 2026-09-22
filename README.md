@@ -184,6 +184,35 @@ then set `daily-wrap-db` to **Shared** at deploy.
 - ⬜ Growth trendlines across periods
 - ⬜ A year view worth printing
 
+## The nightly wrap
+
+Nothing watches `~/.claude`, so a day you never open the app on is a day that
+never gets wrapped, even though the transcripts are sitting there.
+`scripts/nightly.ts` closes that gap without the web server:
+
+```bash
+bun run nightly                # today, plus any unwrapped day in the last 7
+bun run nightly 2026-09-19     # one specific day, rewrapped
+bun run nightly --window 30    # widen the catch-up window
+bun run nightly --dry-run      # report what it would do
+```
+
+It looks back over a window rather than at today alone, so a laptop that was
+asleep or a day spent away from the machine does not leave a permanent hole.
+A day already wrapped is left alone, except today, which is still in progress.
+
+Run it nightly from cron:
+
+```
+30 23 * * * cd /path/to/daily-wrap && PATH=$HOME/.bun/bin:/opt/homebrew/bin:/usr/bin:/bin bun scripts/nightly.ts >> $HOME/Library/Logs/daily-wrap-nightly.log 2>&1
+```
+
+The explicit `PATH` matters: cron starts with almost none, and the job needs
+`bun` and `gh`. If the project lives under `~/Desktop`, `~/Documents` or
+`~/Downloads`, macOS will block cron from reading it until you grant
+**Full Disk Access** to `/usr/sbin/cron` in System Settings > Privacy &
+Security. The failure is silent, so check the log after the first night.
+
 ## Keeping Postgres running (macOS)
 
 `brew services` is broken on Homebrew 6.0.12 — a formula uses `stop_timeout`,

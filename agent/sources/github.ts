@@ -25,11 +25,12 @@ function gh(token: string): Octokit {
       auth: token,
       log: {
         debug: () => {},
+        // Request traces, one line per call, which bury a nightly log.
+        info: () => {},
         // The issues-and-PRs search endpoint warns on every call that it is
         // deprecated. It is still the only way to query PRs by date across
         // repos, and `advanced_search` keeps it working — so drop that one
         // warning and let every other through.
-        info: console.info,
         warn: (message: string) => {
           if (!message.includes('issuesAndPullRequests')) console.warn(message);
         },
