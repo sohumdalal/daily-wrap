@@ -84,6 +84,9 @@ function githubSignal(day: GitHubDay | null): number {
  * signal as the stored one. The two sources are judged independently: a
  * GitHub outage should not cost you the day's Claude record.
  *
+ * `force` is for repairing a day whose stored capture is wrong rather than
+ * merely thinner, which the signal comparison cannot tell apart.
+ *
  * Done in a transaction because it is a read-then-write; concurrent collects of
  * the same day would otherwise be able to interleave.
  */
@@ -91,6 +94,7 @@ export async function saveDay(
   day: string,
   claude: ClaudeDay | null,
   github: GitHubDay | null,
+  opts: { force?: boolean } = {},
 ): Promise<DayRecord> {
   const sql = db();
   return sql.begin(async (tx) => {
@@ -103,11 +107,11 @@ export async function saveDay(
     const stored = existing[0];
 
     const keepClaude =
-      stored && claudeSignal(claude) < claudeSignal(stored.claude)
+      stored && !opts.force && claudeSignal(claude) < claudeSignal(stored.claude)
         ? stored.claude
         : claude;
     const keepGithub =
-      stored && githubSignal(github) < githubSignal(stored.github)
+      stored && !opts.force && githubSignal(github) < githubSignal(stored.github)
         ? stored.github
         : github;
 

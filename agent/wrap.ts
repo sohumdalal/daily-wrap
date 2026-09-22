@@ -35,12 +35,13 @@ const MAX_PROMPTS_PER_SESSION = 30;
 const MAX_PROMPT_CHARS = 500;
 
 /**
- * Caps here are a guard against runaway output, not a style rule — the prompt
- * asks for about twenty five words, and these leave real headroom above that.
- * A tight cap is the wrong tool: a dense day produces longer sentences, and
- * rejecting them throws away the entire wrap for the busiest day of the week.
+ * A sanity bound, not a style rule. Length is governed by the prompt and
+ * absolutely bounded by max_tokens, so this only has to catch output that has
+ * gone genuinely wrong. Set anywhere near the prompt's target it instead
+ * rejects the wrap for the densest days, which are the ones worth keeping:
+ * at 220 and again at 420 it did exactly that.
  */
-const PROSE_MAX = 420;
+const PROSE_MAX = 800;
 
 const WrapSchema = z.object({
   // A compact label, not a title: it appears as one row in a rollup's list of

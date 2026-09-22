@@ -16,6 +16,8 @@ const PER_PAGE = 50;
 const MAX_PAGES = 3;
 /** Fetching additions/deletions costs one request per PR. */
 const MAX_ENRICHED = 20;
+/** Confirming a review date costs one request per candidate PR. */
+const MAX_REVIEW_CHECKS = 60;
 
 let client: Octokit | null = null;
 
@@ -89,6 +91,42 @@ async function searchPrs(token: string, q: string): Promise<SearchedPr[]> {
     if (res.data.items.length < PER_PAGE) break;
   }
   return out;
+}
+
+/**
+ * When the user actually submitted a review on this PR inside the window.
+ *
+ * The search API has no reviewed-at qualifier, so `reviewed-by` has to be
+ * bounded by `updated`, which matches any PR touched in the window however
+ * long ago it was reviewed. A PR reviewed last November and relabelled today
+ * comes back as today's work. Only the review timestamps can settle it.
+ */
+async function reviewedInWindow(
+  token: string,
+  repo: string,
+  number: number,
+  username: string,
+  startIso: string,
+  endIso: string,
+): Promise<string | null> {
+  const [owner, name] = repo.split('/');
+  if (!owner || !name) return null;
+  try {
+    const res = await gh(token).pulls.listReviews({
+      owner,
+      repo: name,
+      pull_number: number,
+      per_page: 100,
+    });
+    const mine = res.data
+      .filter((r) => r.user?.login === username && r.submitted_at)
+      .map((r) => r.submitted_at!)
+      .filter((at) => at >= startIso && at <= endIso)
+      .sort();
+    return mine[mine.length - 1] ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /** Diff size for a PR. Null when the repo or PR isn't reachable. */
@@ -166,6 +204,9 @@ export async function fetchGitHubDay(
   if (!token) throw new Error('GITHUB_TOKEN is not configured');
   if (!username) throw new Error('GITHUB_USERNAME is not configured');
   const range = dayRange(day, timezone);
+  const offset = offsetSuffix(day, timezone);
+  const startIso = new Date(`${day}T00:00:00${offset}`).toISOString();
+  const endIso = new Date(`${day}T23:59:59${offset}`).toISOString();
 
   const [commits, openedRaw, mergedRaw, reviewedRaw] = await Promise.all([
     fetchCommits(token, username, day, timezone),
@@ -179,14 +220,26 @@ export async function fetchGitHubDay(
     toPullRequests(token, mergedRaw),
   ]);
 
-  const reviewed: ReviewedPullRequest[] = reviewedRaw.map((r) => ({
-    repo: r.repo,
-    number: r.number,
-    title: r.title,
-    url: r.htmlUrl,
-    author: r.author,
-    at: r.updatedAt,
-  }));
+  // Each candidate costs one request, so cap the fan-out. A day's real review
+  // count is far below this; the surplus is stale PRs the search matched on
+  // `updated` alone.
+  const candidates = reviewedRaw.slice(0, MAX_REVIEW_CHECKS);
+  const checked = await Promise.all(
+    candidates.map(async (r) => ({
+      row: r,
+      at: await reviewedInWindow(token, r.repo, r.number, username, startIso, endIso),
+    })),
+  );
+  const reviewed: ReviewedPullRequest[] = checked
+    .filter((c): c is { row: SearchedPr; at: string } => c.at !== null)
+    .map(({ row, at }) => ({
+      repo: row.repo,
+      number: row.number,
+      title: row.title,
+      url: row.htmlUrl,
+      author: row.author,
+      at,
+    }));
 
   const repos = [
     ...new Set([

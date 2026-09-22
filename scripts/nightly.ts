@@ -15,6 +15,9 @@
  *   bun run nightly 2026-09-19       one specific day, rewrapped
  *   bun run nightly --window 30      widen the catch-up window
  *   bun run nightly --dry-run        report what it would do
+ *   bun run nightly --force          replace a stored capture that is wrong,
+ *                                    not merely thinner, which the signal
+ *                                    comparison in saveDay cannot tell apart
  */
 
 import { loadLocalEnv } from './env.ts';
@@ -32,6 +35,7 @@ const { addDays, daysBetween, today } = await import('../agent/time.ts');
 
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
+const force = args.includes('--force');
 const windowArg = args.indexOf('--window');
 const windowDays = windowArg === -1 ? 7 : Number(args[windowArg + 1] ?? 7);
 const explicitDay = args.find((a) => /^\d{4}-\d{2}-\d{2}$/.test(a));
@@ -55,6 +59,11 @@ await runMigrations();
 /** Days worth looking at: the day in progress, plus any gap behind it. */
 async function chooseDays(): Promise<string[]> {
   if (explicitDay) return [explicitDay];
+  // A repair pass has to revisit days that already have a wrap.
+  if (force) {
+    const from = addDays(todayKey, -Math.max(0, windowDays - 1));
+    return daysBetween(from, todayKey);
+  }
 
   const from = addDays(todayKey, -Math.max(0, windowDays - 1));
   const candidates = daysBetween(from, todayKey);
@@ -109,7 +118,7 @@ for (const day of days) {
       continue;
     }
 
-    const stored = await store.saveDay(day, claude, github);
+    const stored = await store.saveDay(day, claude, github, { force });
     const wrap = await writeDayWrap({
       day,
       claude: stored.claude,
