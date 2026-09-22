@@ -25,6 +25,8 @@ const el = {
   shell: $('shell'),
   goalsView: $('goals-view'),
   goalsTab: $('goals-tab'),
+  brand: $('brand'),
+  brandmenu: $('brandmenu'),
   goalForm: $('goal-form'),
   goalTitle: $('goal-title'),
   goalCategory: $('goal-category'),
@@ -560,6 +562,7 @@ function applyMode() {
   el.goalsTab.setAttribute('aria-current', String(goals));
   el.datefield.closest('.datefield-wrap').hidden = goals;
   closeCalendar();
+  openBrandMenu(false);
   for (const button of el.periods.querySelectorAll('button[data-period]')) {
     button.setAttribute(
       'aria-current',
@@ -591,10 +594,6 @@ function applyHash() {
 // ── Events ─────────────────────────────────────────────────────────────────
 
 el.periods.addEventListener('click', (e) => {
-  if (e.target.dataset?.view === 'goals') {
-    location.hash = '#goals';
-    return;
-  }
   const period = e.target.dataset?.period;
   if (period) go(period, keyContaining(period, state.key, state.today));
 });
@@ -645,6 +644,27 @@ async function goToTodaysReflection() {
 }
 
 el.todayJump.addEventListener('click', goToTodaysReflection);
+
+// ── Brand menu ─────────────────────────────────────────────────────────────
+
+function openBrandMenu(open) {
+  el.brandmenu.hidden = !open;
+  el.brand.setAttribute('aria-expanded', String(open));
+}
+
+el.brand.addEventListener('click', (e) => {
+  e.stopPropagation();
+  closeCalendar();
+  openBrandMenu(el.brandmenu.hidden);
+});
+
+el.brandmenu.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (e.target.dataset?.view === 'goals') {
+    openBrandMenu(false);
+    location.hash = '#goals';
+  }
+});
 
 // ── Calendar ───────────────────────────────────────────────────────────────
 
@@ -759,9 +779,10 @@ el.calToday.addEventListener('click', () => {
   go(state.period, keyForToday(state.period, state.today));
 });
 
-// Clicking anywhere else, or Escape, dismisses it.
+// Clicking anywhere else dismisses either popup.
 document.addEventListener('click', () => {
   if (!el.calendar.hidden) closeCalendar();
+  if (!el.brandmenu.hidden) openBrandMenu(false);
 });
 
 // ── Disagreeing with the agent's take ──────────────────────────────────────
@@ -832,8 +853,9 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) el.disputeSend.click();
     return;
   }
-  if (e.key === 'Escape' && !el.calendar.hidden) {
+  if (e.key === 'Escape' && (!el.calendar.hidden || !el.brandmenu.hidden)) {
     closeCalendar();
+    openBrandMenu(false);
     return;
   }
   if (e.metaKey || e.ctrlKey || e.altKey) return;

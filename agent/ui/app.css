@@ -127,23 +127,74 @@ body {
   border-bottom: 1px solid var(--hairline);
 }
 
+.brand {
+  position: relative;
+}
+
 .wordmark {
   display: flex;
   align-items: center;
   gap: var(--xxs);
+  padding: var(--xxs) 0;
+  background: none;
+  border: 0;
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.65px;
   text-transform: uppercase;
-  color: var(--ink);
 }
 
-/* The one mark that carries the accent, at the size of a Cavallino. */
-.wordmark::before {
-  content: '';
+/* The one mark that carries the accent, at the size of a Cavallino. It pivots
+   to horizontal when the menu is open — the mark is the disclosure arrow. */
+.wordmark .tick {
   width: 3px;
   height: 14px;
   background: var(--primary);
+  transition: transform 140ms ease;
+}
+
+.wordmark[aria-expanded='true'] .tick {
+  transform: rotate(90deg);
+}
+
+.brandmenu {
+  position: absolute;
+  top: calc(100% + var(--xxs));
+  left: 0;
+  z-index: 20;
+  min-width: 176px;
+  padding: var(--xxxs);
+  background: var(--canvas);
+  border: 1px solid var(--muted);
+  border-radius: var(--r-none);
+}
+
+.brandmenu button {
+  display: block;
+  width: 100%;
+  padding: var(--xxs) var(--xs);
+  background: none;
+  border: 0;
+  color: var(--body);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.65px;
+  text-transform: uppercase;
+  text-align: left;
+}
+
+.brandmenu button:hover {
+  background: var(--canvas-elevated);
+  color: var(--ink);
+}
+
+.brandmenu button[aria-current='true'] {
+  color: var(--primary);
 }
 
 .nav-right {

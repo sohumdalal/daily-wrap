@@ -14,14 +14,32 @@
   </head>
   <body>
     <nav class="topnav">
-      <span class="wordmark">Daily Wrap</span>
+      <!-- The accent rule is the affordance: it pivots from vertical to
+           horizontal when the menu opens, rather than adding a chevron beside
+           a mark that is already doing that job. -->
+      <div class="brand">
+        <button
+          class="wordmark"
+          id="brand"
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded="false"
+        >
+          <span class="tick" aria-hidden="true"></span>
+          Daily Wrap
+        </button>
+        <div class="brandmenu" id="brandmenu" role="menu" hidden>
+          <button role="menuitem" type="button" data-view="goals" id="goals-tab">
+            Goals
+          </button>
+        </div>
+      </div>
       <div class="nav-right">
         <div class="periods" id="periods">
           <button data-period="day" aria-current="true">Day</button>
           <button data-period="week">Week</button>
           <button data-period="month">Month</button>
           <button data-period="year">Year</button>
-          <button data-view="goals" id="goals-tab">Goals</button>
         </div>
         <!-- The whole calendar is ours. A native date input's popup is browser
              chrome: CSS cannot reach it, so it arrives grey with a blue
