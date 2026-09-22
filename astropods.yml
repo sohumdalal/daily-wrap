@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://astropods.com/schema/package.json
 spec: blueprint/v1
-name: "@sohumdalal/daily-wrap"
+name: "@sohum/daily-wrap"
 
 agent:
   build:
@@ -34,6 +34,15 @@ agent:
         - claude-haiku-4-5
       default: "claude-sonnet-5"
       description: Claude model that writes the wraps.
+    - name: POSTGRES_URL
+      datatype: string
+      secret: true
+      optional: true
+      description: >-
+        Postgres connection string, which overrides the connection details the
+        knowledge store injects. Set it to reach a database the platform did
+        not provision, so this agent and a laptop collecting Claude Code
+        activity share one record. Leave empty to use the declared store.
     - name: CLAUDE_HOME
       datatype: string
       optional: true
