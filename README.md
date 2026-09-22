@@ -87,7 +87,7 @@ One container. No build step.
 daily-wrap/
 ├── astropods.yml       blueprint/v1 — frontend agent, github + anthropic + postgres
 ├── AGENT.md            agent card (registry-facing)
-├── DESIGN.md           Ferrari design system the screen follows
+├── DESIGN.md           → ../DESIGN.md (shared Ferrari design system, one per agents/ tree)
 ├── Dockerfile          single stage; bun, port 80
 └── agent/
     ├── index.ts        Bun.serve + Hono; binds before touching the database

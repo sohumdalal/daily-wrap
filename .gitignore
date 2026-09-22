@@ -5,3 +5,6 @@ scratch/
 .DS_Store
 *.log
 .cache/
+
+# shared design system lives one level up at agents/DESIGN.md
+DESIGN.md

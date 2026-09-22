@@ -118,7 +118,7 @@ Otherwise copy `.env.example`.
 
 ## Design
 
-The screen follows the Ferrari design system in `DESIGN.md`: near-black canvas,
+The screen follows the shared Ferrari design system in `../DESIGN.md` (symlinked here as `DESIGN.md`): near-black canvas,
 one scarce accent, Inter at 500, sharp corners, hairlines instead of shadows.
 Ferrari's signature is a full-bleed cinematic photograph; there is none here, so
 the day's numbers carry the top instead — `spec-cell` is the system's own
