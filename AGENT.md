@@ -119,8 +119,11 @@ Otherwise copy `.env.example`.
 ## Design
 
 The screen follows the Ferrari design system in `DESIGN.md`: near-black canvas,
-Rosso Corsa used scarcely, Inter at 500, sharp corners, hairlines instead of
-shadows. Ferrari's signature is a full-bleed cinematic photograph; there is no
-photography here, so the day's headline takes that role — display-mega on the
-bare canvas with nothing competing. The accent appears twice: the wordmark rule
-and the marker on **where you grew**, which is the reason the record is kept.
+one scarce accent, Inter at 500, sharp corners, hairlines instead of shadows.
+Ferrari's signature is a full-bleed cinematic photograph; there is none here, so
+the day's numbers carry the top instead — `spec-cell` is the system's own
+display treatment for figures, and the figures are what a day amounts to.
+
+The accent is yellow rather than the system's Rosso Corsa, and appears twice:
+the wordmark rule, and the marker on **where you grew** — the reason the record
+is kept. Red is left to warnings, so the two never read as the same signal.
