@@ -95,6 +95,22 @@ export type GitHubDay = {
   };
 };
 
+/**
+ * One clickable artifact behind a wrap. Derived from collected data only, so a
+ * source is always something that really exists. `slack` is declared ahead of
+ * the integration so the UI and ordering don't need changing when it lands.
+ */
+export type Source = {
+  kind: 'merged' | 'opened' | 'reviewed' | 'commit' | 'slack';
+  /** Short identity, e.g. `astropods/astro#2669`. */
+  ref: string;
+  label: string;
+  url: string;
+  at: string | null;
+  /** Whose work it was, for something reviewed rather than authored. */
+  author?: string;
+};
+
 // ── Stored records ─────────────────────────────────────────────────────────
 
 export type DayRecord = {
@@ -105,19 +121,39 @@ export type DayRecord = {
 };
 
 /**
- * What the agent writes back. `did` is what happened; `learned` and `grew` are
- * the point of the whole exercise. All three may be empty — a quiet day should
- * read as a quiet day rather than have growth invented for it.
+ * What the agent writes back.
+ *
+ * `did` is what happened. `learned` is the agent's own read on what this person
+ * took from the period — a short paragraph, not bullets, because it is an
+ * argument rather than a list, and it is the half of the record that sits
+ * beside the reflection. `grew` stays terse: the distilled trajectory.
+ *
+ * `learned` and `grew` may be empty. A quiet day should read as a quiet day
+ * rather than have growth invented for it.
  */
 export type Wrap = {
   period: Period;
   key: string;
   headline: string;
   did: string[];
-  learned: string[];
+  /** 2–3 sentences. The agent's take, paired with the person's reflection. */
+  learned: string;
   grew: string[];
   model: string | null;
   generatedAt: string;
+};
+
+/**
+ * A correction the person made to something the agent wrote. Every wrap
+ * written afterwards sees these, which is how the agent's read of them gets
+ * less wrong over time.
+ */
+export type Feedback = {
+  id: string;
+  period: Period;
+  key: string;
+  note: string;
+  createdAt: string;
 };
 
 export type Reflection = {

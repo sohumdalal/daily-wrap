@@ -25,6 +25,11 @@
   /* Dark ink on the accent: white on yellow is 1.3:1 and unreadable. */
   --on-primary: #181818;
   --semantic-warning: #f13a2c;
+  /* Ferrari's semantic set. Success is lightened from the documented #03904a,
+     which is 4.31:1 on this canvas and fails AA for an 11px label; the hue is
+     unchanged and it now reads at 5.45:1. */
+  --semantic-success: #03a454;
+  --semantic-info: #4c98b9;
   /* The ring sits outside the element (outline-offset), so it lands on the
      canvas rather than on the accent, where yellow-on-yellow would vanish. */
   --focus: #ffffff;
@@ -141,9 +146,73 @@ body {
   background: var(--primary);
 }
 
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: var(--sm);
+}
+
 .periods {
   display: flex;
   gap: var(--xs);
+}
+
+/* The native control, made to sit in the system rather than fight it. The
+   root's `color-scheme: dark` gives the popup a dark calendar for free; the
+   indicator glyph ships black, so it needs inverting to be visible at all. */
+.datepick {
+  appearance: none;
+  background: none;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-none);
+  padding: 0 var(--xxs);
+  height: 32px;
+  color: var(--body);
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: 0.4px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.datepick:hover {
+  color: var(--ink);
+  border-color: var(--muted);
+}
+
+.datepick::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.45;
+  cursor: pointer;
+}
+
+.datepick::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+/* Safari renders these as separate fields with their own spacing. */
+.datepick::-webkit-datetime-edit {
+  padding: 0;
+}
+
+/* Separated from the period switcher by a hairline: it is a jump, not a mode. */
+.today-jump {
+  appearance: none;
+  background: none;
+  border: 0;
+  border-left: 1px solid var(--hairline);
+  padding: var(--xxs) 0 var(--xxs) var(--sm);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.65px;
+  text-transform: uppercase;
+}
+
+.today-jump:active {
+  color: var(--primary);
 }
 
 .periods button {
@@ -342,6 +411,129 @@ body {
   color: var(--ink);
 }
 
+/* ── The agent's take, and disputing it ─────────────────────────────────── */
+
+/* The most important text on the page, so it is set as prose rather than as a
+   list: larger, looser, and the full measure. */
+.take {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1.55;
+  letter-spacing: 0;
+  color: var(--ink);
+  max-width: 62ch;
+}
+
+.disagree {
+  appearance: none;
+  background: none;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-none);
+  padding: var(--xxxs) var(--xxs);
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  margin-left: auto;
+}
+
+.disagree:hover {
+  color: var(--ink);
+  border-color: var(--muted);
+}
+
+.dispute {
+  padding-top: var(--sm);
+}
+
+.dispute-actions {
+  display: flex;
+  gap: var(--xxs);
+  padding-top: var(--xs);
+}
+
+.corrections {
+  padding-top: var(--sm);
+}
+
+.corrections .label {
+  display: block;
+  padding-bottom: var(--xxs);
+}
+
+/* ── Sources ────────────────────────────────────────────────────────────── */
+
+/* Hairline-divided rows, the same treatment as a race calendar in the system:
+   a short label column, then the identity, then what it was. */
+.sources {
+  display: flex;
+  flex-direction: column;
+}
+
+.sources a {
+  display: grid;
+  grid-template-columns: 78px minmax(0, auto) minmax(0, 1fr);
+  gap: var(--xs);
+  align-items: baseline;
+  padding: var(--xs) 0;
+  border-top: 1px solid var(--hairline);
+  color: var(--body);
+  text-decoration: none;
+}
+
+.sources a:last-child {
+  border-bottom: 1px solid var(--hairline);
+}
+
+.sources .kind {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Each kind of source carries its own colour from the Ferrari semantic set, so
+   the column scans by outcome rather than reading as one grey block. Commits
+   stay muted on purpose — they are the most numerous row by far, and colouring
+   them would drown the ones that mean something. */
+.sources a[data-kind='merged'] .kind {
+  color: var(--semantic-success);
+}
+
+.sources a[data-kind='opened'] .kind {
+  color: var(--primary);
+}
+
+.sources a[data-kind='reviewed'] .kind {
+  color: var(--semantic-info);
+}
+
+.sources a[data-kind='commit'] .kind {
+  color: var(--body);
+}
+
+.sources a[data-kind='slack'] .kind {
+  color: var(--semantic-warning);
+}
+
+.sources .ref {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.sources .what {
+  color: var(--body);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ── Reflection ─────────────────────────────────────────────────────────── */
 
 textarea {
@@ -504,6 +696,14 @@ textarea::placeholder {
     padding: 0 var(--xs);
   }
 
+  .nav-right {
+    gap: var(--xs);
+  }
+
+  .today-jump {
+    padding-left: var(--xs);
+  }
+
   .shell {
     padding: var(--lg) var(--xs) var(--xl);
   }
@@ -520,6 +720,15 @@ textarea::placeholder {
   .covered a {
     grid-template-columns: 1fr;
     gap: var(--xxxs);
+  }
+
+  .sources a {
+    grid-template-columns: 1fr;
+    gap: var(--xxxs);
+  }
+
+  .sources .what {
+    white-space: normal;
   }
 
   .actions {

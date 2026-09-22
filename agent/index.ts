@@ -24,7 +24,11 @@ app.get('/', serveStatic({ root: './agent/ui', path: 'index.html' }));
 Bun.serve({
   port: config.port,
   fetch: app.fetch,
-  idleTimeout: 30,
+  // Writing a wrap is one or two model calls and can run past 30s on a dense
+  // day — and a retry after a schema miss doubles it. At 30s the connection was
+  // dropped mid-generation with no error on either side, which made the busiest
+  // days the ones that could never be wrapped.
+  idleTimeout: 180,
 });
 
 console.log(

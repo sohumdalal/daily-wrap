@@ -15,11 +15,23 @@
   <body>
     <nav class="topnav">
       <span class="wordmark">Daily Wrap</span>
-      <div class="periods" id="periods">
-        <button data-period="day" aria-current="true">Day</button>
-        <button data-period="week">Week</button>
-        <button data-period="month">Month</button>
-        <button data-period="year">Year</button>
+      <div class="nav-right">
+        <div class="periods" id="periods">
+          <button data-period="day" aria-current="true">Day</button>
+          <button data-period="week">Week</button>
+          <button data-period="month">Month</button>
+          <button data-period="year">Year</button>
+        </div>
+        <input
+          class="datepick"
+          type="date"
+          id="datepick"
+          aria-label="Jump to a date"
+          title="Jump to a date"
+        />
+        <button class="today-jump" id="today-jump" title="Today's reflection (T)">
+          Today
+        </button>
       </div>
     </nav>
 
@@ -48,22 +60,31 @@
         <ul class="bullets" id="did"></ul>
       </section>
 
+      <!-- The agent's read, then yours. These two are the point of the record,
+           so they sit together and are saved together. -->
       <section class="section" id="learned-section" hidden>
-        <div class="section-head"><span class="label">What you learned</span></div>
-        <ul class="bullets quiet" id="learned"></ul>
-      </section>
+        <div class="section-head">
+          <span class="label">What you learned</span>
+          <button class="disagree" id="disagree">Disagree</button>
+        </div>
+        <p class="take" id="learned"></p>
 
-      <section class="section growth" id="grew-section" hidden>
-        <div class="section-head"><span class="label">Where you grew</span></div>
-        <ul class="bullets" id="grew"></ul>
-      </section>
+        <div class="dispute" id="dispute" hidden>
+          <textarea
+            id="dispute-note"
+            placeholder="What did it get wrong about you? This is kept and applied to every wrap from here on."
+          ></textarea>
+          <div class="dispute-actions">
+            <button class="btn" id="dispute-send">Send &amp; rewrite</button>
+            <button class="btn outline" id="dispute-cancel">Cancel</button>
+          </div>
+        </div>
 
-      <!-- Rollups list the days beneath them instead of spec cells. -->
-      <section class="section" id="covered-section" hidden>
-        <div class="section-head"><span class="label">Days in this period</span></div>
-        <div class="covered" id="covered"></div>
+        <div class="corrections" id="corrections" hidden>
+          <span class="label">Corrections you've given</span>
+          <ul class="bullets quiet" id="corrections-list"></ul>
+        </div>
       </section>
-
       <section class="section">
         <div class="section-head"><span class="label" id="reflection-label">Reflection</span></div>
         <textarea
@@ -84,6 +105,28 @@
         </div>
       </section>
 
+      <section class="section growth" id="grew-section" hidden>
+        <div class="section-head"><span class="label">Where you grew</span></div>
+        <ul class="bullets" id="grew"></ul>
+      </section>
+
+      <!-- Rollups list the days beneath them instead of spec cells. -->
+      <section class="section" id="covered-section" hidden>
+        <div class="section-head"><span class="label">Days in this period</span></div>
+        <div class="covered" id="covered"></div>
+      </section>
+
+      <!-- Derived from collected data, never from model output: every row is a
+           real URL. Slack threads join this list when that integration lands. -->
+      <section class="section" id="sources-section" hidden>
+        <div class="section-head">
+          <span class="label">Sources</span>
+          <span class="caption" id="sources-count"></span>
+        </div>
+        <div class="sources" id="sources"></div>
+      </section>
+
+
       <div class="actions">
         <button class="btn" id="wrap">Wrap the day</button>
         <button class="btn outline" id="collect">Refresh sources</button>
@@ -97,6 +140,7 @@
         <span><kbd>D</kbd> <kbd>W</kbd> <kbd>M</kbd> <kbd>Y</kbd> period</span>
         <span><kbd>&#9166;</kbd> wrap</span>
         <span><kbd>R</kbd> reflect</span>
+        <span><kbd>T</kbd> today</span>
       </div>
     </main>
 

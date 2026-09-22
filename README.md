@@ -26,18 +26,31 @@ each query bounded with the day's real UTC offset so a local day is a local day.
 ## What it writes
 
 ```
-headline   at most eight words
-did        3–5 bullets, most consequential first
-learned    0–3 bullets — a mechanism, a constraint, a root cause
+headline   a terse label, ≤6 words — used in a rollup's list of days
+did        3–5 bullets, grouped by thread of work, not one per artifact
+learned    2–3 sentences — the agent's read on what the period taught you
 grew       0–2 bullets — a change in how you work, judge or decide
 ```
 
-`learned` and `grew` may be empty, and often should be. A mechanical day should
-read as one; manufactured insight would make the rollups worthless, since they
-are written by reading these fields back across days.
+`learned` is the point. It is a paragraph rather than a list because it is an
+argument, and it sits directly beside the reflection you write yourself — the
+agent's read and yours, saved together. It may be empty: a mechanical day should
+read as one, and manufactured insight would make the rollups worthless, since
+they are written by reading these fields back across days.
 
-Your own reflection outranks the machine record — when you've written one it is
-authoritative for what you learned, and the commits are only evidence.
+Each day also sees the **ten days before it**, so a wrap can recognise ongoing
+work rather than describing every day as though it began from nothing.
+
+**Sources** are derived from collected data only, never from model output — every
+row is a real URL from the GitHub API or a Claude transcript, so a wrap can be
+wrong about a sentence but never about a link.
+
+### Disagreeing
+
+If the agent's read of you is wrong, press **Disagree** and say why. The note is
+stored and shown to *every* wrap written afterwards as a binding instruction, and
+the current one is rewritten immediately. This is the only mechanism by which the
+agent's model of you improves instead of being wrong the same way forever.
 
 ## Architecture
 

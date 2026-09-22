@@ -4,7 +4,14 @@
 
 import { db } from './db/client.ts';
 import type { Period } from './time.ts';
-import type { ClaudeDay, DayRecord, GitHubDay, Reflection, Wrap } from './types.ts';
+import type {
+  ClaudeDay,
+  DayRecord,
+  Feedback,
+  GitHubDay,
+  Reflection,
+  Wrap,
+} from './types.ts';
 
 /** Single-user today, but every row is tagged so that needn't stay true. */
 const USER = 'default';
@@ -66,11 +73,23 @@ type WrapRow = {
   key: string;
   headline: string;
   did: string[];
-  learned: string[];
+  /** A string since 0003; older rows held an array of bullets. */
+  learned: string | string[] | null;
   grew: string[];
   model: string | null;
   generated_at: Date;
 };
+
+/**
+ * `learned` is a paragraph now. Migration 0003 joined the old arrays, but a row
+ * written by an older build could still be an array — so normalise on read
+ * rather than trusting the column's shape.
+ */
+function asParagraph(value: string | string[] | null): string {
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) return value.filter((v) => typeof v === 'string').join(' ');
+  return '';
+}
 
 function toWrap(row: WrapRow): Wrap {
   return {
@@ -78,7 +97,7 @@ function toWrap(row: WrapRow): Wrap {
     key: row.key,
     headline: row.headline,
     did: row.did ?? [],
-    learned: row.learned ?? [],
+    learned: asParagraph(row.learned),
     grew: row.grew ?? [],
     model: row.model,
     generatedAt: row.generated_at.toISOString(),
@@ -193,6 +212,64 @@ export async function saveReflection(
     RETURNING period, key, body, energy, updated_at
   `;
   return toReflection(rows[0]!);
+}
+
+type FeedbackRow = {
+  id: string;
+  period: Period;
+  key: string;
+  note: string;
+  created_at: Date;
+};
+
+function toFeedback(row: FeedbackRow): Feedback {
+  return {
+    id: row.id,
+    period: row.period,
+    key: row.key,
+    note: row.note,
+    createdAt: row.created_at.toISOString(),
+  };
+}
+
+export async function addFeedback(
+  period: Period,
+  key: string,
+  note: string,
+): Promise<Feedback> {
+  const rows = await db()<FeedbackRow[]>`
+    INSERT INTO feedback (user_id, period, key, note)
+    VALUES (${USER}, ${period}, ${key}, ${note})
+    RETURNING id, period, key, note, created_at
+  `;
+  return toFeedback(rows[0]!);
+}
+
+/** Corrections for one period key, newest first — shown beside its wrap. */
+export async function getFeedback(period: Period, key: string): Promise<Feedback[]> {
+  const rows = await db()<FeedbackRow[]>`
+    SELECT id, period, key, note, created_at
+      FROM feedback
+     WHERE user_id = ${USER} AND period = ${period} AND key = ${key}
+     ORDER BY created_at DESC
+  `;
+  return rows.map(toFeedback);
+}
+
+/**
+ * The most recent corrections across every period. Injected into every later
+ * generation — this is the whole mechanism by which the agent's read of this
+ * person improves rather than repeating the same misjudgement.
+ */
+export async function recentFeedback(limit = 25): Promise<Feedback[]> {
+  const rows = await db()<FeedbackRow[]>`
+    SELECT id, period, key, note, created_at
+      FROM feedback
+     WHERE user_id = ${USER}
+     ORDER BY created_at DESC
+     LIMIT ${limit}
+  `;
+  return rows.map(toFeedback);
 }
 
 /**

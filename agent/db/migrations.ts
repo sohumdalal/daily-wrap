@@ -65,6 +65,38 @@ const MIGRATIONS: Array<{ id: string; sql: string }> = [
         ON reflections(user_id, period, key DESC);
     `,
   },
+  {
+    // "learned" became a paragraph rather than a list: it is the agent's read
+    // on the period, and it sits beside the person's own reflection. Existing
+    // rows hold arrays, so join them instead of discarding them.
+    //
+    // "feedback" is the correction channel. Disagreeing with a wrap records a
+    // note here, and every later generation is shown these notes — so the
+    // agent's read gets less wrong over time instead of being wrong the same
+    // way forever.
+    id: '0003_learned_paragraph_and_feedback',
+    sql: `
+      UPDATE wraps
+         SET learned = to_jsonb(
+               (SELECT string_agg(item, ' ')
+                  FROM jsonb_array_elements_text(learned) AS item)
+             )
+       WHERE jsonb_typeof(learned) = 'array';
+
+      UPDATE wraps SET learned = '""'::jsonb WHERE learned IS NULL;
+
+      CREATE TABLE IF NOT EXISTS feedback (
+        id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id    TEXT NOT NULL DEFAULT 'default',
+        period     TEXT NOT NULL CHECK (period IN ('day','week','month','year')),
+        key        TEXT NOT NULL,
+        note       TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS feedback_recent
+        ON feedback(user_id, created_at DESC);
+    `,
+  },
 ];
 
 export async function runMigrations(): Promise<void> {

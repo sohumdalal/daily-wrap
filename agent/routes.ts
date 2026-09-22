@@ -14,6 +14,7 @@ import { Hono } from 'hono';
 import { config, readiness } from './config.ts';
 import { fetchClaudeDay } from './sources/claude.ts';
 import { fetchGitHubDay } from './sources/github.ts';
+import { mergeSources, sourcesForDay } from './sources/links.ts';
 import * as store from './store.ts';
 import {
   isKeyFor,
@@ -92,6 +93,7 @@ async function view(period: Period, key: string) {
     span,
     wrap,
     reflection,
+    feedback: await store.getFeedback(period, key),
   };
 
   if (period === 'day') {
@@ -101,17 +103,24 @@ async function view(period: Period, key: string) {
       claude: record?.claude ?? null,
       github: record?.github ?? null,
       collectedAt: record?.collectedAt ?? null,
+      sources: sourcesForDay(record?.claude ?? null, record?.github ?? null),
       // A rollup needs days beneath it; a day needs nothing.
       coveredDays: null,
     };
   }
 
-  const dayWraps = await store.getWrapsBetween('day', span.from, span.to);
+  const [dayWraps, days] = await Promise.all([
+    store.getWrapsBetween('day', span.from, span.to),
+    store.getDays(span.from, span.to),
+  ]);
   return {
     ...base,
     claude: null,
     github: null,
     collectedAt: null,
+    // A period's sources are every day's, deduped — the same PR reviewed twice
+    // in a week is one link.
+    sources: mergeSources(days.map((d) => sourcesForDay(d.claude, d.github))),
     coveredDays: dayWraps.map((w) => ({ key: w.key, headline: w.headline })),
   };
 }
@@ -178,6 +187,50 @@ routes.put('/api/reflection/:period/:key', async (c) => {
 
   const reflection = await store.saveReflection(t.period, t.key, text, energy);
   return c.json({ reflection });
+});
+
+/**
+ * Disagree with a wrap. The note is kept and shown to every later generation,
+ * then this key is rewritten immediately so the correction is visible at once
+ * rather than only affecting tomorrow.
+ */
+routes.post('/api/view/:period/:key/disagree', async (c) => {
+  const t = target(c.req.param('period'), c.req.param('key'));
+  if (!t) return c.json({ error: 'bad period or key' }, 400);
+
+  const body = (await c.req.json().catch(() => ({}))) as { note?: unknown };
+  const note = typeof body.note === 'string' ? body.note.trim() : '';
+  if (!note) return c.json({ error: 'say what was wrong about it' }, 400);
+  if (note.length > 2000) return c.json({ error: 'note is too long' }, 400);
+
+  await store.addFeedback(t.period, t.key, note);
+
+  if (!readiness().llm) {
+    // The note is safely stored; it will apply whenever a key is next written.
+    return c.json({ ...(await view(t.period, t.key)), errors: [] });
+  }
+
+  try {
+    if (t.period === 'day') {
+      const record = await store.getDay(t.key);
+      if (!hasActivity(record?.claude ?? null, record?.github ?? null)) {
+        return c.json({ ...(await view(t.period, t.key)), empty: true, errors: [] });
+      }
+      await writeDayWrap({
+        day: t.key,
+        claude: record?.claude ?? null,
+        github: record?.github ?? null,
+        reflection: await store.getReflection('day', t.key),
+      });
+    } else {
+      await writeRollup(t.period, t.key);
+    }
+  } catch (err) {
+    if (!(err instanceof NoDaysToRollUp)) throw err;
+    return c.json({ ...(await view(t.period, t.key)), empty: true, errors: [] });
+  }
+
+  return c.json({ ...(await view(t.period, t.key)), errors: [] });
 });
 
 routes.get('/api/index/:period', async (c) => {

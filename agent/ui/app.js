@@ -10,6 +10,8 @@ const $ = (id) => document.getElementById(id);
 const el = {
   shell: $('shell'),
   periods: $('periods'),
+  todayJump: $('today-jump'),
+  datepick: $('datepick'),
   prev: $('prev'),
   next: $('next'),
   dateLabel: $('date-label'),
@@ -21,10 +23,20 @@ const el = {
   didSection: $('did-section'),
   learned: $('learned'),
   learnedSection: $('learned-section'),
+  disagree: $('disagree'),
+  dispute: $('dispute'),
+  disputeNote: $('dispute-note'),
+  disputeSend: $('dispute-send'),
+  disputeCancel: $('dispute-cancel'),
+  corrections: $('corrections'),
+  correctionsList: $('corrections-list'),
   grew: $('grew'),
   grewSection: $('grew-section'),
   covered: $('covered'),
   coveredSection: $('covered-section'),
+  sources: $('sources'),
+  sourcesSection: $('sources-section'),
+  sourcesCount: $('sources-count'),
   provenance: $('provenance'),
   reflection: $('reflection'),
   reflectionLabel: $('reflection-label'),
@@ -154,15 +166,25 @@ function renderWrap(view) {
       ? 'Nothing wrapped yet.'
       : `Nothing wrapped for this ${view.period} yet.`;
 
-  const sections = [
+  for (const [section, node, items] of [
     [el.didSection, el.did, wrap?.did ?? []],
-    [el.learnedSection, el.learned, wrap?.learned ?? []],
     [el.grewSection, el.grew, wrap?.grew ?? []],
-  ];
-  for (const [section, node, items] of sections) {
+  ]) {
     section.hidden = items.length === 0;
     if (items.length) list(node, items);
   }
+
+  // The agent's take is a paragraph. The section stays open whenever there are
+  // corrections to show, even on a period it has nothing to say about.
+  const take = wrap?.learned ?? '';
+  const notes = view.feedback ?? [];
+  el.learned.textContent = take;
+  el.learned.hidden = !take;
+  el.learnedSection.hidden = !take && notes.length === 0;
+  el.disagree.hidden = !take;
+
+  el.corrections.hidden = notes.length === 0;
+  if (notes.length) list(el.correctionsList, notes.map((n) => n.note));
 }
 
 function renderCovered(view) {
@@ -190,6 +212,43 @@ function renderCovered(view) {
       what.className = 'what';
       what.textContent = d.headline;
       a.append(when, what);
+      return a;
+    }),
+  );
+}
+
+/**
+ * Every row is a real URL that came from the collected data, so these are safe
+ * to link. textContent throughout — a PR title is somebody else's text.
+ */
+function renderSources(view) {
+  const sources = view.sources ?? [];
+  el.sourcesSection.hidden = sources.length === 0;
+  if (!sources.length) return;
+
+  el.sourcesCount.textContent = `${sources.length}`;
+  el.sources.replaceChildren(
+    ...sources.map((s) => {
+      const a = document.createElement('a');
+      a.href = s.url;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.dataset.kind = s.kind;
+
+      const kind = document.createElement('span');
+      kind.className = 'kind';
+      kind.textContent = s.kind;
+
+      const ref = document.createElement('span');
+      ref.className = 'ref';
+      ref.textContent = s.ref;
+
+      const what = document.createElement('span');
+      what.className = 'what';
+      what.textContent = s.author ? `${s.label} · ${s.author}` : s.label;
+      what.title = what.textContent;
+
+      a.append(kind, ref, what);
       return a;
     }),
   );
@@ -245,6 +304,11 @@ function render() {
   const view = state.view;
   if (!view) return;
 
+  // The picker always shows a real date for the current key, and cannot reach
+  // into the future, where there is nothing to wrap.
+  el.datepick.value = view.span.from;
+  el.datepick.max = state.today;
+
   for (const button of el.periods.querySelectorAll('button')) {
     button.setAttribute('aria-current', String(button.dataset.period === state.period));
   }
@@ -260,6 +324,7 @@ function render() {
   renderSpecs(view);
   renderWrap(view);
   renderCovered(view);
+  renderSources(view);
   renderReflection(view);
   renderProvenance(view);
 }
@@ -294,12 +359,15 @@ async function load() {
   render();
 }
 
-async function run(path, pending) {
+async function run(path, pending, body) {
   if (state.busy) return;
   busy(true);
   note(pending);
   try {
-    const view = await api(path, { method: 'POST' });
+    const view = await api(path, {
+      method: 'POST',
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
     state.view = view;
     render();
     if (view.empty)
@@ -374,6 +442,69 @@ el.periods.addEventListener('click', (e) => {
   if (period) go(period, keyContaining(period, state.key, state.today));
 });
 
+/**
+ * Jump to today and put the cursor in the reflection. Focusing has to wait for
+ * the view to load, since rendering replaces the textarea's value — and it is
+ * skipped when already on today's day so pressing Today twice doesn't fight
+ * the caret.
+ */
+async function goToTodaysReflection() {
+  const alreadyThere = state.period === 'day' && state.key === state.today;
+  if (!alreadyThere) {
+    go('day', state.today);
+    // `go` routes through the hash, so wait for the load it triggers.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  el.reflection.focus();
+  el.reflection.setSelectionRange(
+    el.reflection.value.length,
+    el.reflection.value.length,
+  );
+  el.reflection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+el.todayJump.addEventListener('click', goToTodaysReflection);
+
+// Picking a date jumps to the period that contains it, so the calendar works
+// the same whether you are looking at a day, a week, a month or a year.
+el.datepick.addEventListener('change', () => {
+  const picked = el.datepick.value;
+  if (!picked) return;
+  if (picked > state.today) {
+    el.datepick.value = state.view?.span.from ?? state.today;
+    return;
+  }
+  go(state.period, keyForToday(state.period, picked));
+});
+
+// ── Disagreeing with the agent's take ──────────────────────────────────────
+
+function showDispute(show) {
+  el.dispute.hidden = !show;
+  if (show) {
+    el.disputeNote.focus();
+  } else {
+    el.disputeNote.value = '';
+  }
+}
+
+el.disagree.addEventListener('click', () => showDispute(el.dispute.hidden));
+el.disputeCancel.addEventListener('click', () => showDispute(false));
+
+el.disputeSend.addEventListener('click', async () => {
+  const note = el.disputeNote.value.trim();
+  if (!note) {
+    el.disputeNote.focus();
+    return;
+  }
+  showDispute(false);
+  await run(
+    `/api/view/${state.period}/${state.key}/disagree`,
+    'Noted. Rewriting with that in mind, and keeping it for next time…',
+    { note },
+  );
+});
+
 el.prev.addEventListener('click', () => go(state.period, shiftKey(state.period, state.key, -1)));
 el.next.addEventListener('click', () => {
   if (!el.next.disabled) go(state.period, shiftKey(state.period, state.key, 1));
@@ -399,9 +530,14 @@ el.energy.addEventListener('click', (e) => {
 });
 
 document.addEventListener('keydown', (e) => {
-  // Never steal keys from the reflection box.
+  // Never steal keys from either text box.
   if (e.target === el.reflection) {
     if (e.key === 'Escape') el.reflection.blur();
+    return;
+  }
+  if (e.target === el.disputeNote) {
+    if (e.key === 'Escape') showDispute(false);
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) el.disputeSend.click();
     return;
   }
   if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -412,7 +548,10 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowLeft') el.prev.click();
   else if (e.key === 'ArrowRight') el.next.click();
   else if (e.key === 'Enter') wrapNow();
-  else if (e.key.toLowerCase() === 'r') {
+  else if (e.key.toLowerCase() === 't') {
+    e.preventDefault();
+    goToTodaysReflection();
+  } else if (e.key.toLowerCase() === 'r') {
     e.preventDefault();
     el.reflection.focus();
   } else if (period) go(period, keyContaining(period, state.key, state.today));
