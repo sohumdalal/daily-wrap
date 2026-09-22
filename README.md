@@ -133,9 +133,24 @@ bun run dev          # http://localhost:3002, migrations run on boot
 bun run typecheck
 ```
 
-`scripts/dev.ts` loads secrets from `~/.ast/project-configs.json` if present and
-takes a live GitHub token from `gh auth token` — a stale token in the ast bag
-would otherwise shadow it. Otherwise copy `.env.example`.
+`scripts/dev.ts` reads `.env.local` first (gitignored — the right place for a
+database URL), then `~/.ast/project-configs.json`, and takes a live GitHub token
+from `gh auth token` since a stale token in the ast bag would otherwise shadow
+it.
+
+### Pointing this laptop at the shared database
+
+Set `POSTGRES_URL` in `.env.local` to the Postgres the deployed agent uses and
+this process writes the days it collects straight into it:
+
+```
+POSTGRES_URL=postgresql://postgres:PW@db.<ref>.supabase.co:5432/postgres
+```
+
+That is the only way a deployed copy ever sees Claude Code activity — the
+transcripts are on this machine, so the laptop does the collecting and the
+deployed agent serves the result. The boot line names whichever database is in
+use, and the header carries a marker whenever it is not local.
 
 ## Deploy
 

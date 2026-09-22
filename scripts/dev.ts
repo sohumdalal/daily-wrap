@@ -6,9 +6,22 @@
  * Anything already in the shell environment wins.
  */
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+
+// .env.local, if present, before anything else. It is gitignored, so it is the
+// right place for a database URL or a token you would rather not paste
+// anywhere it could be recorded.
+if (existsSync('.env.local')) {
+  for (const line of readFileSync('.env.local', 'utf-8').split('\n')) {
+    const match = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)$/i);
+    if (!match) continue;
+    const key = match[1]!;
+    const value = match[2]!.trim().replace(/^['"]|['"]$/g, '');
+    if (value && !process.env[key]) process.env[key] = value;
+  }
+}
 
 const PROJECT_NAMES = ['daily-wrap', '@sohumdalal/daily-wrap'];
 
