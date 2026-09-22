@@ -15,7 +15,9 @@ import { labelFor, spanOf, type Period } from './time.ts';
 import type { ClaudeDay, GitHubDay, Reflection, Wrap } from './types.ts';
 
 const WrapSchema = z.object({
-  headline: z.string().min(1).max(80),
+  // A compact label, not a title: it appears as one row in a rollup's list of
+  // days, never as a heading on the page.
+  headline: z.string().min(1).max(60),
   did: z.array(z.string().min(1)).max(5),
   learned: z.array(z.string().min(1)).max(3),
   grew: z.array(z.string().min(1)).max(2),
@@ -37,7 +39,10 @@ ${VOICE}
 
 Return a JSON object with exactly these keys:
 
-  headline  At most eight words. What the day was about. Not a sentence.
+  headline  At most six words, 60 characters. A terse label for this day in a
+            list of days, not a heading. Name the thing, not the actions:
+            "Everyone group lockdown" over "Locked the Everyone group and
+            moved access settings". No trailing punctuation.
   did       Three to five bullets. What actually happened, most consequential
             first. At most fourteen words each. Cite the PR number or repo when
             the record gives you one. Merge related work into one bullet rather
@@ -65,7 +70,9 @@ signal: what they returned to, what stopped being hard, what kept biting.
 
 Return a JSON object with exactly these keys:
 
-  headline  At most eight words. What this period was about.
+  headline  At most six words, 60 characters. A terse label for this period in
+            a list, not a heading. Name the theme, not the actions. No trailing
+            punctuation.
   did       Three to five bullets. The work that mattered at this altitude. At
             most sixteen words each. A single day's task belongs here only if it
             still matters at the end of the period. Group; do not enumerate.

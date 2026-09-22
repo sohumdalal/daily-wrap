@@ -2,10 +2,11 @@
  * Daily Wrap — Ferrari design system (see DESIGN.md).
  *
  * The brand's primary depth treatment is a full-bleed cinematic photograph.
- * There is no photography here, so the day's headline takes that role: it runs
- * at display-mega on the bare near-black canvas with nothing competing for the
- * top of the viewport. Rosso Corsa stays scarce — the one CTA, and the marker
- * on "where you grew", which is the whole point of keeping the record.
+ * There is no photography here, and a giant headline in its place just shouted
+ * a restatement of the bullets below it. So the day's numbers carry the top
+ * instead — spec-cell is the system's own display treatment for figures, and
+ * these figures are what the day actually amounts to. Rosso Corsa stays scarce:
+ * the one CTA, and the marker on "where you grew".
  */
 
 :root {
@@ -71,15 +72,6 @@ body {
 }
 
 /* ── Type roles ─────────────────────────────────────────────────────────── */
-
-.display-mega {
-  font-size: 80px;
-  font-weight: 500; /* display weight stays at 500 — never bold */
-  line-height: 1.05;
-  letter-spacing: -1.6px;
-  color: var(--ink);
-  margin: 0;
-}
 
 .display-lg {
   font-size: 36px;
@@ -172,24 +164,19 @@ body {
 .shell {
   max-width: 840px;
   margin: 0 auto;
-  padding: var(--xxl) var(--lg) var(--super);
+  padding: var(--xl) var(--lg) var(--super);
 }
 
 /* ── The hero: the day itself ───────────────────────────────────────────── */
 
 .hero {
-  min-height: 46vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  padding-bottom: var(--xl);
+  padding-bottom: var(--md);
 }
 
 .hero-date {
   display: flex;
   align-items: center;
   gap: var(--xs);
-  margin-bottom: var(--sm);
 }
 
 .stepper {
@@ -217,6 +204,7 @@ body {
 
 /* The empty state is the blank screen. One hairline sentence, nothing else. */
 .hero-empty {
+  padding-top: var(--lg);
   font-size: 26px;
   font-weight: 500;
   line-height: 1.5;
@@ -506,13 +494,6 @@ textarea::placeholder {
 
 /* ── Responsive ─────────────────────────────────────────────────────────── */
 
-@media (max-width: 1024px) {
-  .display-mega {
-    font-size: 56px;
-    letter-spacing: -1.12px;
-  }
-}
-
 @media (max-width: 640px) {
   .topnav {
     padding: 0 var(--xs);
@@ -520,16 +501,6 @@ textarea::placeholder {
 
   .shell {
     padding: var(--lg) var(--xs) var(--xl);
-  }
-
-  .display-mega {
-    font-size: 32px;
-    letter-spacing: -0.32px;
-  }
-
-  .hero {
-    min-height: auto;
-    padding-bottom: var(--md);
   }
 
   .specs {

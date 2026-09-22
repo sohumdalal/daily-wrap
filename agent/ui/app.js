@@ -14,7 +14,6 @@ const el = {
   next: $('next'),
   dateLabel: $('date-label'),
   todayBadge: $('today-badge'),
-  headline: $('headline'),
   empty: $('empty'),
   specs: $('specs'),
   specsRule: $('specs-rule'),
@@ -145,12 +144,11 @@ function renderSpecs(view) {
 
 function renderWrap(view) {
   const wrap = view.wrap;
-  const hasWrap = Boolean(wrap && (wrap.headline || wrap.did.length));
+  const hasWrap = Boolean(wrap && wrap.did.length);
 
-  el.headline.hidden = !hasWrap;
+  // The headline is still generated — it labels this key in a rollup's list of
+  // days — but it is not rendered here, where it only restated the bullets.
   el.empty.hidden = hasWrap;
-  if (hasWrap) el.headline.textContent = wrap.headline;
-
   el.empty.textContent =
     view.period === 'day'
       ? 'Nothing wrapped yet.'
