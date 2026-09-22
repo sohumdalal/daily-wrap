@@ -52,7 +52,15 @@ integrations:
     provider: github
 
 knowledge:
-  # → POSTGRES_HOST / POSTGRES_PORT / POSTGRES_URL
+  # → POSTGRES_HOST / POSTGRES_PORT / POSTGRES_USER / POSTGRES_PASSWORD /
+  #   POSTGRES_DB  (Postgres gets discrete fields, not a URL)
+  #
+  # Set this to "Shared" at deploy time and point it at a Postgres connected
+  # under Knowledge > Add store. Then this laptop and the deployed agent are
+  # reading and writing one database: the laptop collects the Claude Code half
+  # of each day, which nothing in the cloud can reach, and the deployed agent
+  # serves it. Left "Local", the platform provisions a private database and the
+  # deployed copy sees no Claude activity at all.
   daily-wrap-db:
     provider: postgres
 

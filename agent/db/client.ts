@@ -1,9 +1,14 @@
 import postgres from 'postgres';
 
 /**
- * Postgres connection. On Astropods the `daily-wrap-db` knowledge entry
- * injects POSTGRES_URL (plus _HOST and _PORT); locally the discrete vars are
- * easier to point at a Homebrew install.
+ * Postgres connection.
+ *
+ * Astropods injects discrete fields for a Postgres knowledge store —
+ * POSTGRES_HOST / PORT / USER / PASSWORD / DB — and deliberately not a URL
+ * (Redis, Qdrant and Neo4j get a _URL; Postgres does not). POSTGRES_URL is
+ * still honoured first because a hosted provider like Neon or Supabase hands
+ * you one, and that is the shape you want when pointing this laptop at the
+ * same shared store the deployed agent uses.
  */
 
 let _sql: postgres.Sql | null = null;
