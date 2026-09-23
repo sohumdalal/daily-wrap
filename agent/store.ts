@@ -11,6 +11,7 @@ import type {
   GitHubDay,
   Goal,
   Reflection,
+  ReflectionTurn,
   Wrap,
   WrapReason,
   WrapVersion,
@@ -276,6 +277,9 @@ type ReflectionRow = {
   key: string;
   body: string;
   energy: number | null;
+  good: string;
+  bad: string;
+  improve: string;
   updated_at: Date;
 };
 
@@ -285,16 +289,23 @@ function toReflection(row: ReflectionRow): Reflection {
     key: row.key,
     body: row.body,
     energy: row.energy,
+    takeaways: {
+      good: row.good ?? '',
+      bad: row.bad ?? '',
+      improve: row.improve ?? '',
+    },
     updatedAt: row.updated_at.toISOString(),
   };
 }
+
+const REFLECTION_COLUMNS = `period, key, body, energy, good, bad, improve, updated_at`;
 
 export async function getReflection(
   period: Period,
   key: string,
 ): Promise<Reflection | null> {
   const rows = await db()<ReflectionRow[]>`
-    SELECT period, key, body, energy, updated_at
+    SELECT ${db().unsafe(REFLECTION_COLUMNS)}
       FROM reflections
      WHERE user_id = ${USER} AND period = ${period} AND key = ${key}
   `;
@@ -307,31 +318,112 @@ export async function getReflectionsBetween(
   to: string,
 ): Promise<Reflection[]> {
   const rows = await db()<ReflectionRow[]>`
-    SELECT period, key, body, energy, updated_at
+    SELECT ${db().unsafe(REFLECTION_COLUMNS)}
       FROM reflections
      WHERE user_id = ${USER} AND period = ${period} AND key BETWEEN ${from} AND ${to}
-       AND body <> ''
+       AND (body <> '' OR good <> '' OR bad <> '' OR improve <> '')
      ORDER BY key
   `;
   return rows.map(toReflection);
 }
 
+/** Patch a reflection, leaving out fields alone. */
 export async function saveReflection(
   period: Period,
   key: string,
-  body: string,
-  energy: number | null,
+  patch: {
+    body?: string;
+    energy?: number | null;
+    good?: string;
+    bad?: string;
+    improve?: string;
+  },
 ): Promise<Reflection> {
-  const rows = await db()<ReflectionRow[]>`
-    INSERT INTO reflections (period, key, user_id, body, energy, updated_at)
-    VALUES (${period}, ${key}, ${USER}, ${body}, ${energy}, now())
+  const sql = db();
+  const rows = await sql<ReflectionRow[]>`
+    INSERT INTO reflections (period, key, user_id, body, energy, good, bad, improve, updated_at)
+    VALUES (
+      ${period}, ${key}, ${USER},
+      ${patch.body ?? ''}, ${patch.energy ?? null},
+      ${patch.good ?? ''}, ${patch.bad ?? ''}, ${patch.improve ?? ''}, now()
+    )
     ON CONFLICT (period, key, user_id) DO UPDATE
-       SET body = EXCLUDED.body,
-           energy = EXCLUDED.energy,
-           updated_at = EXCLUDED.updated_at
-    RETURNING period, key, body, energy, updated_at
+       SET body = coalesce(${patch.body ?? null}::text, reflections.body),
+           energy = CASE WHEN ${patch.energy !== undefined} THEN ${patch.energy ?? null}::smallint
+                         ELSE reflections.energy END,
+           good = coalesce(${patch.good ?? null}::text, reflections.good),
+           bad = coalesce(${patch.bad ?? null}::text, reflections.bad),
+           improve = coalesce(${patch.improve ?? null}::text, reflections.improve),
+           updated_at = now()
+    RETURNING ${sql.unsafe(REFLECTION_COLUMNS)}
   `;
   return toReflection(rows[0]!);
+}
+
+type TurnRow = {
+  id: string;
+  role: ReflectionTurn['role'];
+  text: string;
+  created_at: Date;
+};
+
+export async function getTurns(period: Period, key: string): Promise<ReflectionTurn[]> {
+  const rows = await db()<TurnRow[]>`
+    SELECT id, role, text, created_at
+      FROM reflection_turns
+     WHERE user_id = ${USER} AND period = ${period} AND key = ${key}
+     ORDER BY created_at
+  `;
+  return rows.map((r) => ({
+    id: r.id,
+    role: r.role,
+    text: r.text,
+    createdAt: r.created_at.toISOString(),
+  }));
+}
+
+/**
+ * Append a turn. A person's turn also refreshes `reflections.body` to the
+ * joined text of everything they have said, which is what every wrap prompt
+ * already reads as their own account of the period.
+ */
+export async function addTurn(
+  period: Period,
+  key: string,
+  role: ReflectionTurn['role'],
+  text: string,
+): Promise<ReflectionTurn[]> {
+  const sql = db();
+  return sql.begin(async (tx) => {
+    await tx`
+      INSERT INTO reflection_turns (user_id, period, key, role, text)
+      VALUES (${USER}, ${period}, ${key}, ${role}, ${text})
+    `;
+    const rows = await tx<TurnRow[]>`
+      SELECT id, role, text, created_at
+        FROM reflection_turns
+       WHERE user_id = ${USER} AND period = ${period} AND key = ${key}
+       ORDER BY created_at
+    `;
+    if (role === 'person') {
+      const body = rows
+        .filter((r) => r.role === 'person')
+        .map((r) => r.text)
+        .join('\n\n');
+      await tx`
+        INSERT INTO reflections (period, key, user_id, body, updated_at)
+        VALUES (${period}, ${key}, ${USER}, ${body}, now())
+        ON CONFLICT (period, key, user_id) DO UPDATE
+           SET body = EXCLUDED.body, updated_at = now()
+      `;
+    }
+    return rows.map((r) => ({
+      id: r.id,
+      role: r.role,
+      text: r.text,
+      createdAt: r.created_at.toISOString(),
+    }));
+  });
 }
 
 type GoalRow = {

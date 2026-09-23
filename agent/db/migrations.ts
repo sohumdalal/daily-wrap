@@ -170,6 +170,33 @@ const MIGRATIONS: Array<{ id: string; sql: string }> = [
        );
     `,
   },
+  {
+    // Reflecting is a conversation now, not a textarea. The agent asks, the
+    // person answers, and the point of it is the three takeaways they end up
+    // with: one thing that went well, one that did not, one to improve.
+    //
+    // `body` on reflections is kept and derived from the person's own turns, so
+    // every prompt that already treats it as their authoritative account keeps
+    // working without change.
+    id: '0006_reflection_conversation',
+    sql: `
+      CREATE TABLE IF NOT EXISTS reflection_turns (
+        id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id    TEXT NOT NULL DEFAULT 'default',
+        period     TEXT NOT NULL CHECK (period IN ('day','week','month','year')),
+        key        TEXT NOT NULL,
+        role       TEXT NOT NULL CHECK (role IN ('agent','person')),
+        text       TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS reflection_turns_thread
+        ON reflection_turns(user_id, period, key, created_at);
+
+      ALTER TABLE reflections ADD COLUMN IF NOT EXISTS good    TEXT NOT NULL DEFAULT '';
+      ALTER TABLE reflections ADD COLUMN IF NOT EXISTS bad     TEXT NOT NULL DEFAULT '';
+      ALTER TABLE reflections ADD COLUMN IF NOT EXISTS improve TEXT NOT NULL DEFAULT '';
+    `,
+  },
 ];
 
 export async function runMigrations(): Promise<void> {

@@ -75,6 +75,14 @@ const el = {
   sourcesCount: $('sources-count'),
   provenance: $('provenance'),
   reflection: $('reflection'),
+  thread: $('thread'),
+  reflectIntro: $('reflect-intro'),
+  reflectSend: $('reflect-send'),
+  reflectHint: $('reflect-hint'),
+  takeaways: $('takeaways'),
+  takeGood: $('take-good'),
+  takeBad: $('take-bad'),
+  takeImprove: $('take-improve'),
   reflectionLabel: $('reflection-label'),
   energy: $('energy'),
   saved: $('saved'),
@@ -298,50 +306,66 @@ function renderSources(view) {
   );
 }
 
-function renderReflection(view) {
-  const r = view.reflection;
-  // Don't clobber what's being typed if a refresh lands mid-sentence.
-  if (document.activeElement !== el.reflection) {
-    el.reflection.value = r?.body ?? '';
+function renderThread(view) {
+  const turns = view.turns ?? [];
+  el.thread.replaceChildren(
+    ...turns.map((t) => {
+      const row = document.createElement('div');
+      row.className = 'turn';
+      row.dataset.role = t.role;
+
+      const role = document.createElement('span');
+      role.className = 'turn-role';
+      role.textContent = t.role === 'agent' ? 'Daily Wrap' : 'You';
+
+      const text = document.createElement('p');
+      text.className = 'turn-text';
+      text.textContent = t.text;
+
+      row.append(role, text);
+      return row;
+    }),
+  );
+  el.reflectIntro.hidden = turns.length > 0;
+  el.reflectSend.textContent = turns.length ? 'Send' : 'Start';
+  el.reflectHint.hidden = turns.length === 0;
+  el.reflection.placeholder = turns.length
+    ? 'Your answer'
+    : 'Answer here, or press Start to have it open the conversation.';
+}
+
+function renderTakeaways(view) {
+  const t = view.reflection?.takeaways ?? { good: '', bad: '', improve: '' };
+  const any = Boolean(t.good || t.bad || t.improve);
+  // Shown once there is something to show, and kept open after that so the
+  // fields stay editable.
+  el.takeaways.hidden = !any;
+  for (const [field, node] of [
+    ['good', el.takeGood],
+    ['bad', el.takeBad],
+    ['improve', el.takeImprove],
+  ]) {
+    if (document.activeElement !== node) node.value = t[field] ?? '';
   }
-  el.reflection.placeholder =
-    view.period === 'day'
-      ? 'What actually happened today?'
-      : `Looking back on this ${view.period} — what changed?`;
+}
+
+function renderReflection(view) {
+  renderThread(view);
+  renderTakeaways(view);
+
   el.reflectionLabel.textContent = 'Reflection';
   for (const button of el.energy.querySelectorAll('button')) {
     button.setAttribute(
       'aria-pressed',
-      String(Number(button.dataset.energy) === r?.energy),
+      String(Number(button.dataset.energy) === view.reflection?.energy),
     );
   }
-  el.saved.textContent = r?.updatedAt
-    ? `Saved ${new Date(r.updatedAt).toLocaleTimeString([], {
+  el.saved.textContent = view.reflection?.updatedAt
+    ? `Saved ${new Date(view.reflection.updatedAt).toLocaleTimeString([], {
         hour: 'numeric',
         minute: '2-digit',
       })}`
     : '';
-}
-
-const clock = (iso) =>
-  new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-
-/**
- * Where this screen's contents came from and when. GitHub's commit search is
- * indexed with a lag, so a count can be short simply because the day was read
- * too early — saying when it was read makes that visible instead of puzzling.
- */
-function renderProvenance(view) {
-  const parts = [];
-  if (view.collectedAt) parts.push(`Sources read ${clock(view.collectedAt)}`);
-  if (view.wrap) {
-    parts.push(
-      `wrapped ${clock(view.wrap.generatedAt)}` +
-        (view.wrap.model ? ` by ${view.wrap.model}` : ''),
-    );
-  }
-  el.provenance.hidden = parts.length === 0;
-  el.provenance.textContent = parts.join(' · ');
 }
 
 function render() {
@@ -543,26 +567,12 @@ const wrapNow = () =>
 const collectNow = () =>
   run(`/api/view/${state.period}/${state.key}/collect`, 'Re-reading Claude and GitHub…');
 
-let saveTimer;
-async function saveReflection() {
-  const energyButton = el.energy.querySelector('button[aria-pressed="true"]');
-  const body = el.reflection.value;
-
-  // Clicking into the box and back out should not create a record. Only write
-  // an empty reflection when there is already one to clear.
-  const hasContent = body.trim() !== '' || energyButton !== null;
-  if (!hasContent && !state.view?.reflection) {
-    el.saved.textContent = '';
-    return;
-  }
-
+/** Patch fields on the reflection without touching the rest. */
+async function patchReflection(patch) {
   try {
     const { reflection } = await api(`/api/reflection/${state.period}/${state.key}`, {
       method: 'PUT',
-      body: JSON.stringify({
-        body,
-        energy: energyButton ? Number(energyButton.dataset.energy) : null,
-      }),
+      body: JSON.stringify(patch),
     });
     if (state.view) state.view.reflection = reflection;
     renderReflection(state.view);
@@ -571,17 +581,52 @@ async function saveReflection() {
   }
 }
 
-function queueSave() {
-  clearTimeout(saveTimer);
+let takeawayTimer;
+function queueTakeaways() {
+  clearTimeout(takeawayTimer);
   el.saved.textContent = 'Saving…';
-  saveTimer = setTimeout(saveReflection, 700);
+  takeawayTimer = setTimeout(
+    () =>
+      patchReflection({
+        good: el.takeGood.value,
+        bad: el.takeBad.value,
+        improve: el.takeImprove.value,
+      }),
+    700,
+  );
+}
+
+/** Send a turn, or open the conversation when the box is empty. */
+async function sendReflection() {
+  if (state.busy) return;
+  const message = el.reflection.value.trim();
+  busy(true);
+  note(message ? null : 'Reading your day…');
+  try {
+    const res = await api(`/api/reflect/${state.period}/${state.key}`, {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    });
+    el.reflection.value = '';
+    if (state.view) {
+      state.view.turns = res.turns;
+      state.view.reflection = res.reflection;
+    }
+    renderReflection(state.view);
+    note(null);
+    el.thread.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } catch (err) {
+    note(err.message, true);
+  } finally {
+    busy(false);
+  }
 }
 
 // ── Resuming after a reload ────────────────────────────────────────────────
 
 /**
- * A reload restores the day from the hash, but not the scroll position or an
- * unsent reflection, so it lands you at the top of a page you were part way
+ * A reload restores the period from the hash, but not the scroll position or
+ * an unsent answer, so it lands you at the top of a page you were part way
  * down. Both are per-key and per-tab, which is what sessionStorage is for.
  * Every access is guarded: a private window or blocked site data throws here
  * rather than returning empty.
@@ -610,11 +655,8 @@ function restorePlace() {
   }
   if (!saved) return;
 
-  // Only when it differs from what the server returned, so a reflection saved
-  // from another tab is not overwritten by a stale draft.
-  if (typeof saved.draft === 'string' && saved.draft !== el.reflection.value) {
-    const stored = state.view?.reflection?.body ?? '';
-    if (saved.draft !== stored) el.reflection.value = saved.draft;
+  if (typeof saved.draft === 'string' && saved.draft && !el.reflection.value) {
+    el.reflection.value = saved.draft;
   }
   if (typeof saved.scroll === 'number' && saved.scroll > 0) {
     // After render, so the page is tall enough to scroll to.
@@ -626,7 +668,7 @@ function restorePlace() {
 window.addEventListener('pagehide', rememberPlace);
 window.addEventListener('beforeunload', rememberPlace);
 
-// ── Routing ────────────────────────────────────────────────────────────────
+// ── Routing// ── Routing ────────────────────────────────────────────────────────────────
 
 function go(period, key, replace = false) {
   rememberPlace();
@@ -917,20 +959,25 @@ el.next.addEventListener('click', () => {
 el.wrap.addEventListener('click', wrapNow);
 el.collect.addEventListener('click', collectNow);
 
-el.reflection.addEventListener('input', queueSave);
-el.reflection.addEventListener('blur', () => {
-  clearTimeout(saveTimer);
-  saveReflection();
-});
+el.reflectSend.addEventListener('click', sendReflection);
+
+for (const node of [el.takeGood, el.takeBad, el.takeImprove]) {
+  node.addEventListener('input', queueTakeaways);
+  node.addEventListener('blur', () => {
+    clearTimeout(takeawayTimer);
+    patchReflection({
+      good: el.takeGood.value,
+      bad: el.takeBad.value,
+      improve: el.takeImprove.value,
+    });
+  });
+}
 
 el.energy.addEventListener('click', (e) => {
   const value = e.target.dataset?.energy;
   if (!value) return;
   const already = e.target.getAttribute('aria-pressed') === 'true';
-  for (const button of el.energy.querySelectorAll('button')) {
-    button.setAttribute('aria-pressed', String(!already && button === e.target));
-  }
-  saveReflection();
+  patchReflection({ energy: already ? null : Number(value) });
 });
 
 /** A key pressed inside a field belongs to the field. */
@@ -956,6 +1003,10 @@ document.addEventListener('keydown', (e) => {
   // Never steal keys from either text box.
   if (e.target === el.reflection) {
     if (e.key === 'Escape') el.reflection.blur();
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      sendReflection();
+    }
     return;
   }
   if (e.target === el.disputeNote) {

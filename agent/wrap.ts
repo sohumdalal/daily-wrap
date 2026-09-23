@@ -314,6 +314,41 @@ and drop a line that did not land. Where one of these was rewritten after a
 disagreement, the version that followed it is the one they accepted.`;
 }
 
+/**
+ * Their own account, which outranks the machine record. The three takeaways
+ * outrank even the conversation they came out of: they are what this person
+ * decided the period amounted to, in their own words, after being asked.
+ */
+function describeReflection(reflection: Reflection | null): string {
+  if (!reflection) return '';
+  const out: string[] = [];
+  const t = reflection.takeaways;
+
+  if (t.good || t.bad || t.improve) {
+    out.push(`
+
+THE THREE TAKEAWAYS THEY SETTLED ON. These are their own conclusions and they
+outrank everything above, including your earlier reads:`);
+    if (t.good) out.push(`  went well: ${t.good}`);
+    if (t.bad) out.push(`  went badly: ${t.bad}`);
+    if (t.improve) out.push(`  to improve: ${t.improve}`);
+  }
+
+  if (reflection.body) {
+    out.push(`
+
+WHAT THEY SAID WHILE REFLECTING (authoritative for what they learned and how
+they grew; the record above is only evidence):
+${reflection.body}`);
+  }
+
+  if (reflection.energy) {
+    out.push(`\nEnergy they rated it: ${reflection.energy}/5.`);
+  }
+
+  return out.join('\n');
+}
+
 function bullets(label: string, items: string[]): string {
   if (!items.length) return '';
   return `${label}\n${items.map((i) => `  - ${i}`).join('\n')}\n`;
@@ -454,15 +489,7 @@ export async function writeDayWrap(opts: {
     describeDay(opts.day, opts.claude, opts.github) +
     describePriorDays(priors) +
     describePriorVersions(versions.slice(0, PRIOR_VERSIONS));
-  if (opts.reflection?.body) {
-    // Their own account of the day outranks the machine record for `learned`
-    // and `grew` — it is the only source for what the day felt like.
-    user += `\n\nTHEIR OWN REFLECTION ON THE DAY (treat as authoritative for what
-they learned and how they grew; the record above is only evidence):\n${opts.reflection.body}`;
-    if (opts.reflection.energy) {
-      user += `\n\nEnergy they rated the day: ${opts.reflection.energy}/5.`;
-    }
-  }
+  user += describeReflection(opts.reflection);
 
   const { value, model } = await generate({
     system: DAY_SYSTEM + describeGoals(goals) + describeFeedback(feedback),
@@ -505,11 +532,17 @@ export async function writeRollup(
     if (w.learned) parts.push(`  learned: ${w.learned}`);
     parts.push(bullets('  grew:', w.grew));
     const r = reflectionByDay.get(w.key);
-    if (r?.body) {
-      parts.push(
-        `  they wrote: ${r.body.replace(/\s+/g, ' ').slice(0, 800)}` +
-          (r.energy ? ` (energy ${r.energy}/5)` : ''),
-      );
+    if (r) {
+      const t = r.takeaways;
+      if (t.good) parts.push(`  they said went well: ${t.good}`);
+      if (t.bad) parts.push(`  they said went badly: ${t.bad}`);
+      if (t.improve) parts.push(`  they said to improve: ${t.improve}`);
+      if (r.body) {
+        parts.push(
+          `  they wrote: ${r.body.replace(/\s+/g, ' ').slice(0, 600)}` +
+            (r.energy ? ` (energy ${r.energy}/5)` : ''),
+        );
+      }
     }
     return parts.filter(Boolean).join('\n');
   });
@@ -520,9 +553,7 @@ export async function writeRollup(
     `${covered} day(s) wrapped in this period.\n\n` +
     sections.join('\n');
 
-  if (ownReflection?.body) {
-    user += `\n\nTHEIR OWN REFLECTION ON THE WHOLE ${period.toUpperCase()} (authoritative):\n${ownReflection.body}`;
-  }
+  user += describeReflection(ownReflection);
 
   user += describePriorVersions(versions.slice(0, PRIOR_VERSIONS));
 

@@ -899,6 +899,102 @@ body {
   white-space: nowrap;
 }
 
+/* ── Reflection conversation ────────────────────────────────────────────── */
+
+/* A transcript, not a chat app: hairline-separated turns with a role label,
+   which is how the system sets a list of anything. Your words carry the ink
+   because they are the part of this that becomes the record. */
+.thread {
+  display: flex;
+  flex-direction: column;
+  max-width: 68ch;
+}
+
+.turn {
+  padding: var(--sm) 0;
+  border-top: 1px solid var(--hairline);
+}
+
+.turn:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.turn-role {
+  display: block;
+  padding-bottom: var(--xxxs);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.turn-text {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.turn[data-role='agent'] .turn-text {
+  color: var(--body);
+}
+
+.turn[data-role='person'] .turn-text {
+  color: var(--ink);
+}
+
+.composer {
+  padding-top: var(--sm);
+  max-width: 68ch;
+}
+
+.composer-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--xs);
+  padding-top: var(--xs);
+}
+
+#reflect-intro,
+#reflect-hint {
+  margin: 0;
+}
+
+/* ── The three ──────────────────────────────────────────────────────────── */
+
+.takeaways {
+  padding-top: var(--lg);
+  max-width: 68ch;
+}
+
+.takeaway {
+  display: block;
+  padding-bottom: var(--xs);
+}
+
+.takeaway .label {
+  display: block;
+  padding-bottom: var(--xxxs);
+}
+
+.takeaway input {
+  display: block;
+  width: 100%;
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  padding: var(--xxs) var(--xs);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+}
+
+.takeaway input::placeholder {
+  color: var(--muted);
+}
+
 /* ── Reflection ─────────────────────────────────────────────────────────── */
 
 textarea {

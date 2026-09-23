@@ -25,6 +25,7 @@ import {
   today,
   type Period,
 } from './time.ts';
+import { nextReflectionTurn } from './reflect.ts';
 import { hasActivity, NoDaysToRollUp, writeDayWrap, writeRollup } from './wrap.ts';
 import type { Goal } from './types.ts';
 import {
@@ -101,6 +102,7 @@ async function view(period: Period, key: string) {
     wrap,
     reflection,
     feedback: await store.getFeedback(period, key),
+    turns: await store.getTurns(period, key),
     versions: await store.countWrapVersions(period, key),
   };
 
@@ -184,17 +186,65 @@ routes.put('/api/reflection/:period/:key', async (c) => {
   const t = target(c.req.param('period'), c.req.param('key'));
   if (!t) return c.json({ error: 'bad period or key' }, 400);
 
-  const body = (await c.req.json().catch(() => ({}))) as {
-    body?: unknown;
-    energy?: unknown;
-  };
-  const text = typeof body.body === 'string' ? body.body : '';
-  const energyNum = Number(body.energy);
-  const energy =
-    Number.isInteger(energyNum) && energyNum >= 1 && energyNum <= 5 ? energyNum : null;
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+  const str = (v: unknown, max: number): string | undefined =>
+    typeof v === 'string' ? v.slice(0, max) : undefined;
 
-  const reflection = await store.saveReflection(t.period, t.key, text, energy);
+  const patch: Parameters<typeof store.saveReflection>[2] = {
+    body: str(body.body, 20_000),
+    good: str(body.good, 240),
+    bad: str(body.bad, 240),
+    improve: str(body.improve, 240),
+  };
+
+  // energy is three-valued: absent leaves it, null clears it, 1-5 sets it.
+  if ('energy' in body) {
+    const n = Number(body.energy);
+    patch.energy = Number.isInteger(n) && n >= 1 && n <= 5 ? n : null;
+  }
+
+  const reflection = await store.saveReflection(t.period, t.key, patch);
   return c.json({ reflection });
+});
+
+// ── Reflection conversation ────────────────────────────────────────────────
+
+/**
+ * Send a message, or open the conversation by sending nothing. Returns the
+ * whole thread so the client never has to reconcile its own optimistic copy.
+ */
+routes.post('/api/reflect/:period/:key', async (c) => {
+  const t = target(c.req.param('period'), c.req.param('key'));
+  if (!t) return c.json({ error: 'bad period or key' }, 400);
+  if (!readiness().llm) {
+    return c.json({ error: 'ANTHROPIC_API_KEY is not configured' }, 400);
+  }
+
+  const body = (await c.req.json().catch(() => ({}))) as { message?: unknown };
+  const message = typeof body.message === 'string' ? body.message.trim() : '';
+  if (message.length > 4000) return c.json({ error: 'that is a long message' }, 400);
+
+  if (message) await store.addTurn(t.period, t.key, 'person', message);
+
+  const reply = await nextReflectionTurn(t.period, t.key);
+  const turns = await store.addTurn(t.period, t.key, 'agent', reply.message);
+
+  // Only persist a draft the agent considers ready, and never over something
+  // already written by hand.
+  if (reply.ready) {
+    const existing = await store.getReflection(t.period, t.key);
+    const held = existing?.takeaways;
+    const untouched = !held || (!held.good && !held.bad && !held.improve);
+    if (untouched) {
+      await store.saveReflection(t.period, t.key, reply.takeaways);
+    }
+  }
+
+  return c.json({
+    turns,
+    reflection: await store.getReflection(t.period, t.key),
+    ready: reply.ready,
+  });
 });
 
 /**

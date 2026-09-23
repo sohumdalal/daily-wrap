@@ -198,10 +198,30 @@ export type Feedback = {
   createdAt: string;
 };
 
+/** One message in a reflection conversation. */
+export type ReflectionTurn = {
+  id: string;
+  role: 'agent' | 'person';
+  text: string;
+  createdAt: string;
+};
+
+/**
+ * What a person took from a period. Three, deliberately: naming the one thing
+ * that mattered is the work, and nine bullets is a chore that gets skipped.
+ */
+export type Takeaways = {
+  good: string;
+  bad: string;
+  improve: string;
+};
+
 export type Reflection = {
   period: Period;
   key: string;
+  /** Derived from the person's own turns; their authoritative account. */
   body: string;
   energy: number | null;
+  takeaways: Takeaways;
   updatedAt: string;
 };

@@ -1,0 +1,171 @@
+/**
+ * The reflection conversation.
+ *
+ * Its job is to get someone to three takeaways they actually believe: one
+ * thing that went well, one that did not, one to improve. It asks; they
+ * answer. It is not here to summarise their day back at them, which they can
+ * already read directly above, and not here to write their conclusions for
+ * them either.
+ */
+
+import { z } from 'zod';
+import { generate } from './llm.ts';
+import * as store from './store.ts';
+import { labelFor, type Period } from './time.ts';
+import type { Goal, ReflectionTurn, Takeaways, Wrap } from './types.ts';
+
+const ReplySchema = z.object({
+  /** One question, or a short acknowledgement plus one question. */
+  message: z.string().min(1).max(600),
+  /**
+   * A draft of the three, offered once there is enough to draw on. Empty
+   * strings until then, so the fields are never filled with a guess.
+   */
+  takeaways: z.object({
+    good: z.string().max(240),
+    bad: z.string().max(240),
+    improve: z.string().max(240),
+  }),
+  /** Whether the three are worth showing yet. */
+  ready: z.boolean(),
+});
+
+const SYSTEM = `You are helping one engineer reflect on a period of their own
+work, in conversation. You have their record of it in front of you.
+
+Your only goal is that they arrive at three takeaways they believe:
+
+  good     the one thing that went well and is worth repeating
+  bad      the one thing that went badly, named honestly
+  improve  the one thing to do differently next
+
+Three, not nine. Naming the one that matters is the work.
+
+HOW TO TALK
+
+Ask one question at a time. Short. A sentence of acknowledgement first is fine
+when they have just told you something real, but do not open every message with
+one, and never restate their day back at them: it is on the screen above this
+conversation.
+
+Ask about the things the record cannot answer. Whether the thing they shipped
+was the thing worth shipping. Which hour they would take back. What they were
+avoiding. Where they got lucky. What they would tell someone starting the same
+day tomorrow. Which of these is worth asking depends on what the record shows
+and what they have already said.
+
+Push once when an answer is vague, then let it go. "It was fine" deserves one
+follow-up, not three. You are not running an interrogation, and a person who
+feels examined stops answering honestly.
+
+Do not praise. Do not tell them what they learned; that is the wrap's job and
+it is written elsewhere. Do not offer advice unless they ask for it.
+
+If their first message is substantial, do not pretend it wasn't. Take what they
+gave you and go one level deeper.
+
+THE TAKEAWAYS
+
+Set ready to false and leave the three empty until they have said enough for a
+draft to be theirs rather than yours. Two or three exchanges of substance is
+usually enough; one short answer is not.
+
+When you do draft them, use their words, not a paraphrase into your register.
+They will edit these, so a draft that sounds like them is worth more than one
+that reads well. Each one is a single sentence, concrete, no hedging.
+
+Once the three are drafted, say so plainly and stop asking questions. They can
+edit and save from there.
+
+ATTRIBUTION
+
+These sessions are this person working with Claude Code. The prompts are
+theirs; most of the work in between is the assistant's, done at their
+direction. Do not ask them about, or credit them with, work the record shows
+the assistant doing. Ask about the calls they made.
+
+Reply with a JSON object only.`;
+
+function describeContext(opts: {
+  period: Period;
+  key: string;
+  wrap: Wrap | null;
+  goals: Goal[];
+  energy: number | null;
+}): string {
+  const out = [`PERIOD: ${opts.period} ${opts.key} (${labelFor(opts.period, opts.key)})`];
+
+  if (opts.wrap) {
+    out.push(`\nWHAT THE RECORD SAYS THEY DID:`);
+    for (const d of opts.wrap.did) out.push(`  - ${d}`);
+    if (opts.wrap.learned) out.push(`\nTHE READ ALREADY WRITTEN ON IT:\n  ${opts.wrap.learned}`);
+    if (opts.wrap.grew.length) {
+      out.push(`\nWHERE IT SAYS TO IMPROVE:`);
+      for (const g of opts.wrap.grew) out.push(`  - ${g}`);
+    }
+  } else {
+    out.push('\nNo wrap has been written for this period yet.');
+  }
+
+  if (opts.energy) out.push(`\nThey rated their energy ${opts.energy}/5.`);
+
+  if (opts.goals.length) {
+    out.push(`\nWHAT THEY ARE TRYING TO BECOME:`);
+    for (const g of opts.goals) out.push(`  - [${g.category}] ${g.title}`);
+  }
+
+  return out.join('\n');
+}
+
+function describeThread(turns: ReflectionTurn[]): string {
+  if (!turns.length) {
+    return `\n\nThis is the start of the conversation. Open it: one short line
+that shows you have read the record, then your first question.`;
+  }
+  const lines = turns.map((t) => `  ${t.role === 'agent' ? 'you' : 'them'}: ${t.text}`);
+  return `\n\nTHE CONVERSATION SO FAR:\n${lines.join('\n')}`;
+}
+
+export type ReflectReply = {
+  message: string;
+  takeaways: Takeaways;
+  ready: boolean;
+  model: string;
+};
+
+/** The agent's next turn, given everything said so far. */
+export async function nextReflectionTurn(
+  period: Period,
+  key: string,
+): Promise<ReflectReply> {
+  const [wrap, reflection, turns, goals, feedback] = await Promise.all([
+    store.getWrap(period, key),
+    store.getReflection(period, key),
+    store.getTurns(period, key),
+    store.activeGoals(),
+    store.recentFeedback(),
+  ]);
+
+  const corrections = feedback.length
+    ? `\n\nCORRECTIONS THIS PERSON HAS GIVEN ABOUT HOW YOU WRITE TO THEM. They
+are binding here too:\n${feedback.map((f) => `  - ${f.note}`).join('\n')}`
+    : '';
+
+  const user =
+    describeContext({
+      period,
+      key,
+      wrap,
+      goals,
+      energy: reflection?.energy ?? null,
+    }) + describeThread(turns);
+
+  const { value, model } = await generate({
+    system: SYSTEM + corrections,
+    user,
+    schema: ReplySchema,
+    maxTokens: 2048,
+  });
+
+  return { ...value, model };
+}

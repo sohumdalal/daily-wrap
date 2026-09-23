@@ -206,13 +206,49 @@
           <ul class="bullets quiet" id="corrections-list"></ul>
         </div>
       </section>
+      <!-- Reflecting is a conversation. The agent asks, you answer, and the
+           point of it is the three you end up with. -->
       <section class="section">
-        <div class="section-head"><span class="label" id="reflection-label">Reflection</span></div>
-        <textarea
-          id="reflection"
-          placeholder="What actually happened today?"
-          spellcheck="true"
-        ></textarea>
+        <div class="section-head">
+          <span class="label" id="reflection-label">Reflection</span>
+          <span class="caption" id="saved"></span>
+        </div>
+
+        <div class="thread" id="thread"></div>
+
+        <p class="caption" id="reflect-intro">
+          Nothing here yet. The agent will read your day and ask you about it.
+        </p>
+
+        <div class="composer">
+          <textarea
+            id="reflection"
+            rows="2"
+            placeholder="Answer here, or press Start to have it open the conversation."
+            spellcheck="true"
+          ></textarea>
+          <div class="composer-actions">
+            <button class="btn" id="reflect-send">Start</button>
+            <span class="caption" id="reflect-hint">&#8984;&#9166; to send</span>
+          </div>
+        </div>
+
+        <div class="takeaways" id="takeaways" hidden>
+          <div class="section-head"><span class="label">Your three</span></div>
+          <label class="takeaway">
+            <span class="label">Went well</span>
+            <input type="text" id="take-good" maxlength="240" />
+          </label>
+          <label class="takeaway">
+            <span class="label">Went badly</span>
+            <input type="text" id="take-bad" maxlength="240" />
+          </label>
+          <label class="takeaway">
+            <span class="label">To improve</span>
+            <input type="text" id="take-improve" maxlength="240" />
+          </label>
+        </div>
+
         <div class="energy">
           <span class="label">Energy</span>
           <div class="energy-scale" id="energy">
@@ -222,7 +258,6 @@
             <button data-energy="4" aria-pressed="false">4</button>
             <button data-energy="5" aria-pressed="false">5</button>
           </div>
-          <span class="caption" id="saved"></span>
         </div>
       </section>
 
