@@ -990,11 +990,106 @@ body {
   white-space: nowrap;
 }
 
+/* ── Chat mode ──────────────────────────────────────────────────────────── */
+
+/*
+ * On the reflection tab the page is exactly the viewport and only the log
+ * scrolls. An outer scrollbar on a chat screen means the composer walks away
+ * from the bottom of the window, which is the thing that makes it feel like a
+ * form rather than a conversation.
+ *
+ * `min-height: 0` at every step of the flex chain is what lets the log shrink
+ * instead of pushing the composer off-screen; without it a flex child refuses
+ * to go below its content height.
+ */
+.shell.is-chat {
+  height: calc(100dvh - 64px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: var(--sm);
+}
+
+.shell.is-chat #tab-reflect {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.shell.is-chat .chat {
+  flex: 1;
+  min-height: 0;
+  margin-top: var(--sm);
+}
+
+.shell.is-chat .chat-log {
+  flex: 1;
+  min-height: 120px;
+  max-height: none;
+}
+
+/* The keyboard legend is the first thing to go when height is scarce. */
+.shell.is-chat .keys {
+  display: none;
+}
+
+/* The day's figures belong to the record, and the read paragraph already gives
+   the conversation its context. Reclaiming their height is worth more here
+   than restating the day beside a chat about it. */
+.shell.is-chat .specs,
+.shell.is-chat .rule {
+  display: none;
+}
+
+.shell.is-chat .hero {
+  padding-bottom: 0;
+}
+
+/* ── The read, collapsible ──────────────────────────────────────────────── */
+
+.read {
+  padding-top: var(--lg);
+}
+
+.read-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--xxs);
+  padding: 0 0 var(--xs);
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.read-toggle .chev {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1;
+  transition: transform 140ms ease;
+}
+
+.read-toggle[aria-expanded='false'] .chev {
+  transform: rotate(-90deg);
+}
+
+.read-toggle:hover .label,
+.read-toggle:hover .chev {
+  color: var(--ink);
+}
+
+.read-toggle[aria-expanded='false'] + .chat-context {
+  display: none;
+}
+
 /* ── Reflection chat ───────────────────────────────────────────────────── */
 
 .chat-context {
   margin: 0;
-  max-width: 64ch;
+  max-width: 72ch;
   font-size: 15px;
   line-height: 1.6;
   color: var(--body);

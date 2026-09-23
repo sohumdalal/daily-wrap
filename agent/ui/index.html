@@ -264,8 +264,11 @@
       <div id="tab-reflect" hidden>
         <!-- One paragraph of context, then a conversation. The day itself is a
              tab away, so repeating it here would only push the chat down. -->
-        <section class="section">
-          <div class="section-head"><span class="label">The read on your day</span></div>
+        <section class="read">
+          <button class="read-toggle" id="read-toggle" type="button" aria-expanded="true">
+            <span class="chev" aria-hidden="true">&#9662;</span>
+            <span class="label">The read on your day</span>
+          </button>
           <p class="chat-context" id="chat-context"></p>
         </section>
 

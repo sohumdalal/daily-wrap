@@ -83,6 +83,7 @@ const el = {
   reflection: $('reflection'),
   thread: $('thread'),
   chatContext: $('chat-context'),
+  readToggle: $('read-toggle'),
   chatThinking: $('chat-thinking'),
   reflectIntro: $('reflect-intro'),
   reflectSend: $('reflect-send'),
@@ -830,6 +831,8 @@ function applyTab() {
   el.tabSummary.hidden = state.tab !== 'summary';
   el.tabReflect.hidden = state.tab !== 'reflect';
   el.tabSources.hidden = state.tab !== 'sources';
+  // Chat mode pins the page to the viewport so only the log scrolls.
+  el.shell.classList.toggle('is-chat', state.tab === 'reflect');
   for (const button of el.tabs.querySelectorAll('button')) {
     button.setAttribute('aria-current', String(button.dataset.tab === state.tab));
   }
@@ -941,6 +944,36 @@ function goToTodaysReflection() {
 }
 
 el.todayJump.addEventListener('click', goToTodaysReflection);
+
+// ── The read, collapsible ──────────────────────────────────────────────────
+
+/** Remembered across days and reloads: a preference, not per-period state. */
+const READ_OPEN_KEY = 'dw:read-open';
+
+function setReadOpen(open) {
+  el.readToggle.setAttribute('aria-expanded', String(open));
+  try {
+    localStorage.setItem(READ_OPEN_KEY, open ? '1' : '0');
+  } catch {
+    // No storage. The choice just will not survive a reload.
+  }
+  scrollChatToEnd();
+}
+
+el.readToggle.addEventListener('click', () => {
+  setReadOpen(el.readToggle.getAttribute('aria-expanded') !== 'true');
+});
+
+(() => {
+  let stored = null;
+  try {
+    stored = localStorage.getItem(READ_OPEN_KEY);
+  } catch {
+    stored = null;
+  }
+  // Open by default: the read is the context the questions come out of.
+  el.readToggle.setAttribute('aria-expanded', String(stored !== '0'));
+})();
 
 // ── Brand menu ─────────────────────────────────────────────────────────────
 
