@@ -82,8 +82,6 @@ const el = {
   provenance: $('provenance'),
   reflection: $('reflection'),
   thread: $('thread'),
-  chatContext: $('chat-context'),
-  readToggle: $('read-toggle'),
   chatThinking: $('chat-thinking'),
   reflectIntro: $('reflect-intro'),
   reflectSend: $('reflect-send'),
@@ -385,54 +383,7 @@ function renderThread(view) {
   scrollChatToEnd();
 }
 
-/** One paragraph of context above the chat. The day itself is a tab away. */
-function renderChatContext(view) {
-  const take = view.wrap?.learned;
-  el.chatContext.textContent = take
-    ? take
-    : view.wrap
-      ? 'No read written for this day yet.'
-      : 'Nothing wrapped for this day yet, so there is nothing to read back.';
-}
-
-function renderTakeaways(view) {
-  const t = view.reflection?.takeaways ?? { good: '', bad: '', improve: '' };
-  const any = Boolean(t.good || t.bad || t.improve);
-  // Shown once there is something to show, and kept open after that so the
-  // fields stay editable.
-  el.takeaways.hidden = !any;
-  for (const [field, node] of [
-    ['good', el.takeGood],
-    ['bad', el.takeBad],
-    ['improve', el.takeImprove],
-  ]) {
-    if (document.activeElement !== node) node.value = t[field] ?? '';
-  }
-}
-
-const clock = (iso) =>
-  new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-
-/**
- * Where this screen's contents came from and when. GitHub's commit search is
- * indexed with a lag, so a count can be short simply because the day was read
- * too early; saying when it was read makes that visible instead of puzzling.
- */
-function renderProvenance(view) {
-  const parts = [];
-  if (view.collectedAt) parts.push(`Sources read ${clock(view.collectedAt)}`);
-  if (view.wrap) {
-    parts.push(
-      `wrapped ${clock(view.wrap.generatedAt)}` +
-        (view.wrap.model ? ` by ${view.wrap.model}` : ''),
-    );
-  }
-  el.provenance.hidden = parts.length === 0;
-  el.provenance.textContent = parts.join(' · ');
-}
-
 function renderReflection(view) {
-  renderChatContext(view);
   renderThread(view);
   renderTakeaways(view);
 
@@ -944,36 +895,6 @@ function goToTodaysReflection() {
 }
 
 el.todayJump.addEventListener('click', goToTodaysReflection);
-
-// ── The read, collapsible ──────────────────────────────────────────────────
-
-/** Remembered across days and reloads: a preference, not per-period state. */
-const READ_OPEN_KEY = 'dw:read-open';
-
-function setReadOpen(open) {
-  el.readToggle.setAttribute('aria-expanded', String(open));
-  try {
-    localStorage.setItem(READ_OPEN_KEY, open ? '1' : '0');
-  } catch {
-    // No storage. The choice just will not survive a reload.
-  }
-  scrollChatToEnd();
-}
-
-el.readToggle.addEventListener('click', () => {
-  setReadOpen(el.readToggle.getAttribute('aria-expanded') !== 'true');
-});
-
-(() => {
-  let stored = null;
-  try {
-    stored = localStorage.getItem(READ_OPEN_KEY);
-  } catch {
-    stored = null;
-  }
-  // Open by default: the read is the context the questions come out of.
-  el.readToggle.setAttribute('aria-expanded', String(stored !== '0'));
-})();
 
 // ── Brand menu ─────────────────────────────────────────────────────────────
 

@@ -1046,54 +1046,7 @@ body {
   padding-bottom: 0;
 }
 
-/* ── The read, collapsible ──────────────────────────────────────────────── */
-
-.read {
-  padding-top: var(--lg);
-}
-
-.read-toggle {
-  display: flex;
-  align-items: center;
-  gap: var(--xxs);
-  padding: 0 0 var(--xs);
-  background: none;
-  border: 0;
-  color: inherit;
-  cursor: pointer;
-  font: inherit;
-  text-align: left;
-}
-
-.read-toggle .chev {
-  color: var(--muted);
-  font-size: 10px;
-  line-height: 1;
-  transition: transform 140ms ease;
-}
-
-.read-toggle[aria-expanded='false'] .chev {
-  transform: rotate(-90deg);
-}
-
-.read-toggle:hover .label,
-.read-toggle:hover .chev {
-  color: var(--ink);
-}
-
-.read-toggle[aria-expanded='false'] + .chat-context {
-  display: none;
-}
-
 /* ── Reflection chat ───────────────────────────────────────────────────── */
-
-.chat-context {
-  margin: 0;
-  max-width: 72ch;
-  font-size: 15px;
-  line-height: 1.6;
-  color: var(--body);
-}
 
 /* A window, bounded by hairlines rather than a lifted panel: the log scrolls
    inside it and the composer is fixed to its foot, so the reply box does not
