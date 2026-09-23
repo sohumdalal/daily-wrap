@@ -862,6 +862,65 @@ body {
   padding-bottom: var(--xxs);
 }
 
+/* ── Source tools ───────────────────────────────────────────────────────── */
+
+.source-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--xs);
+  padding-bottom: var(--sm);
+}
+
+#sources-search {
+  appearance: none;
+  flex: 1 1 260px;
+  min-width: 0;
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  padding: var(--xxs) var(--xs);
+  height: 36px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+}
+
+#sources-search::placeholder {
+  color: var(--muted);
+}
+
+.source-kinds {
+  display: flex;
+  gap: var(--xxxs);
+}
+
+.source-kinds button {
+  appearance: none;
+  background: none;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-none);
+  padding: var(--xxxs) var(--xxs);
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.source-kinds button:hover {
+  color: var(--ink);
+  border-color: var(--muted);
+}
+
+.source-kinds button[aria-pressed='true'] {
+  background: var(--canvas-elevated);
+  border-color: var(--muted);
+  color: var(--ink);
+}
+
 /* ── Sources ────────────────────────────────────────────────────────────── */
 
 /* Hairline-divided rows, the same treatment as a race calendar in the system:

@@ -74,8 +74,11 @@ const el = {
   covered: $('covered'),
   coveredSection: $('covered-section'),
   sources: $('sources'),
-  sourcesSection: $('sources-section'),
   sourcesCount: $('sources-count'),
+  sourcesSearch: $('sources-search'),
+  sourcesKinds: $('sources-kinds'),
+  sourcesEmpty: $('sources-empty'),
+  tabSources: $('tab-sources'),
   provenance: $('provenance'),
   reflection: $('reflection'),
   thread: $('thread'),
@@ -94,7 +97,7 @@ const el = {
   note: $('note'),
 };
 
-const TABS = ['summary', 'reflect'];
+const TABS = ['summary', 'reflect', 'sources'];
 
 let state = {
   /** 'wrap' shows a period; 'goals' shows the goals page. */
@@ -280,12 +283,36 @@ function renderCovered(view) {
  * Every row is a real URL that came from the collected data, so these are safe
  * to link. textContent throughout — a PR title is somebody else's text.
  */
-function renderSources(view) {
-  const sources = view.sources ?? [];
-  el.sourcesSection.hidden = sources.length === 0;
-  if (!sources.length) return;
+/** Search text and kind, applied to the day's sources without refetching. */
+const sourceFilter = { text: '', kind: 'all' };
 
-  el.sourcesCount.textContent = `${sources.length}`;
+function matchesFilter(source) {
+  if (sourceFilter.kind !== 'all' && source.kind !== sourceFilter.kind) return false;
+  const text = sourceFilter.text.trim().toLowerCase();
+  if (!text) return true;
+  return `${source.ref} ${source.label} ${source.author ?? ''}`
+    .toLowerCase()
+    .includes(text);
+}
+
+function renderSources(view) {
+  const all = view.sources ?? [];
+  const sources = all.filter(matchesFilter);
+
+  el.sourcesCount.textContent =
+    sources.length === all.length
+      ? `${all.length}`
+      : `${sources.length} of ${all.length}`;
+  el.sourcesEmpty.hidden = sources.length > 0 || all.length === 0;
+
+  // Only offer a kind that the period actually contains.
+  const present = new Set(all.map((s) => s.kind));
+  for (const button of el.sourcesKinds.querySelectorAll('button')) {
+    const kind = button.dataset.kind;
+    button.hidden = kind !== 'all' && !present.has(kind);
+    button.setAttribute('aria-pressed', String(kind === sourceFilter.kind));
+  }
+
   el.sources.replaceChildren(
     ...sources.map((s) => {
       const a = document.createElement('a');
@@ -682,6 +709,9 @@ window.addEventListener('beforeunload', rememberPlace);
 
 function go(period, key, replace = false) {
   rememberPlace();
+  sourceFilter.text = '';
+  sourceFilter.kind = 'all';
+  el.sourcesSearch.value = '';
   state.mode = 'wrap';
   // Moving to another period keeps whichever half you were reading.
   const suffix = state.tab === 'summary' ? '' : `/${state.tab}`;
@@ -706,6 +736,7 @@ function setTab(tab) {
 function applyTab() {
   el.tabSummary.hidden = state.tab !== 'summary';
   el.tabReflect.hidden = state.tab !== 'reflect';
+  el.tabSources.hidden = state.tab !== 'sources';
   for (const button of el.tabs.querySelectorAll('button')) {
     button.setAttribute('aria-current', String(button.dataset.tab === state.tab));
   }
@@ -984,6 +1015,18 @@ el.disputeSend.addEventListener('click', async () => {
     'Noted. Rewriting with that in mind, and keeping it for next time…',
     { note },
   );
+});
+
+el.sourcesSearch.addEventListener('input', () => {
+  sourceFilter.text = el.sourcesSearch.value;
+  if (state.view) renderSources(state.view);
+});
+
+el.sourcesKinds.addEventListener('click', (e) => {
+  const kind = e.target.dataset?.kind;
+  if (!kind) return;
+  sourceFilter.kind = kind;
+  if (state.view) renderSources(state.view);
 });
 
 el.tabs.addEventListener('click', (e) => {

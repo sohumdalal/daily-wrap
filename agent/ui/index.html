@@ -169,6 +169,7 @@
           <div class="tabs" id="tabs">
             <button data-tab="summary" aria-current="true">Summary</button>
             <button data-tab="reflect">Reflection</button>
+            <button data-tab="sources">Sources</button>
           </div>
         </div>
       </header>
@@ -182,117 +183,132 @@
       <p class="hero-empty" id="empty" hidden>Nothing wrapped yet.</p>
 
       <section class="section" id="did-section" hidden>
-        <div class="section-head"><span class="label">What you did</span></div>
-        <ul class="bullets" id="did"></ul>
-      </section>
+              <div class="section-head"><span class="label">What you did</span></div>
+              <ul class="bullets" id="did"></ul>
+            </section>
 
-      <!-- The agent's read, then yours. These two are the point of the record,
-           so they sit together and are saved together. -->
       <section class="section" id="learned-section" hidden>
-        <div class="section-head">
-          <span class="label">What you learned</span>
-          <button class="disagree" id="disagree">Disagree</button>
-        </div>
-        <p class="take" id="learned"></p>
+              <div class="section-head">
+                <span class="label">What you learned</span>
+                <button class="disagree" id="disagree">Disagree</button>
+              </div>
+              <p class="take" id="learned"></p>
 
-        <div class="dispute" id="dispute" hidden>
-          <textarea
-            id="dispute-note"
-            placeholder="What did it get wrong about you? This is kept and applied to every wrap from here on."
-          ></textarea>
-          <div class="dispute-actions">
-            <button class="btn" id="dispute-send">Send &amp; rewrite</button>
-            <button class="btn outline" id="dispute-cancel">Cancel</button>
-          </div>
-        </div>
+              <div class="dispute" id="dispute" hidden>
+                <textarea
+                  id="dispute-note"
+                  placeholder="What did it get wrong about you? This is kept and applied to every wrap from here on."
+                ></textarea>
+                <div class="dispute-actions">
+                  <button class="btn" id="dispute-send">Send &amp; rewrite</button>
+                  <button class="btn outline" id="dispute-cancel">Cancel</button>
+                </div>
+              </div>
 
-        <div class="corrections" id="corrections" hidden>
-          <span class="label">Corrections you've given</span>
-          <ul class="bullets quiet" id="corrections-list"></ul>
-        </div>
-      </section>
-      </div>
-
-      <!-- Reflecting is a conversation. The agent asks, you answer, and the
-           point of it is the three you end up with. -->
-      <div id="tab-reflect" hidden>
-      <section class="section">
-        <div class="section-head">
-          <span class="label" id="reflection-label">Reflection</span>
-          <span class="caption" id="saved"></span>
-        </div>
-
-        <div class="thread" id="thread"></div>
-
-        <p class="caption" id="reflect-intro">
-          Nothing here yet. The agent will read your day and ask you about it.
-        </p>
-
-        <div class="composer">
-          <textarea
-            id="reflection"
-            rows="2"
-            placeholder="Answer here, or press Start to have it open the conversation."
-            spellcheck="true"
-          ></textarea>
-          <div class="composer-actions">
-            <button class="btn" id="reflect-send">Start</button>
-            <span class="caption" id="reflect-hint">&#8984;&#9166; to send</span>
-          </div>
-        </div>
-
-        <div class="takeaways" id="takeaways" hidden>
-          <div class="section-head"><span class="label">Your three</span></div>
-          <label class="takeaway">
-            <span class="label">Went well</span>
-            <input type="text" id="take-good" maxlength="240" />
-          </label>
-          <label class="takeaway">
-            <span class="label">Went badly</span>
-            <input type="text" id="take-bad" maxlength="240" />
-          </label>
-          <label class="takeaway">
-            <span class="label">To improve</span>
-            <input type="text" id="take-improve" maxlength="240" />
-          </label>
-        </div>
-
-        <div class="energy">
-          <span class="label">Energy</span>
-          <div class="energy-scale" id="energy">
-            <button data-energy="1" aria-pressed="false">1</button>
-            <button data-energy="2" aria-pressed="false">2</button>
-            <button data-energy="3" aria-pressed="false">3</button>
-            <button data-energy="4" aria-pressed="false">4</button>
-            <button data-energy="5" aria-pressed="false">5</button>
-          </div>
-        </div>
-      </section>
+              <div class="corrections" id="corrections" hidden>
+                <span class="label">Corrections you've given</span>
+                <ul class="bullets quiet" id="corrections-list"></ul>
+              </div>
+            </section>
 
       <section class="section growth" id="grew-section" hidden>
-        <div class="section-head">
-          <span class="label" id="grew-label">Where to improve tomorrow</span>
-        </div>
-        <ul class="bullets" id="grew"></ul>
-      </section>
+              <div class="section-head">
+                <span class="label" id="grew-label">Where to improve tomorrow</span>
+              </div>
+              <ul class="bullets" id="grew"></ul>
+            </section>
 
-      <!-- Rollups list the days beneath them instead of spec cells. -->
       <section class="section" id="covered-section" hidden>
-        <div class="section-head"><span class="label">Days in this period</span></div>
-        <div class="covered" id="covered"></div>
-      </section>
+              <div class="section-head"><span class="label">Days in this period</span></div>
+              <div class="covered" id="covered"></div>
+            </section>
+      </div>
 
-      <!-- Derived from collected data, never from model output: every row is a
-           real URL. Slack threads join this list when that integration lands. -->
-      <section class="section" id="sources-section" hidden>
+      <div id="tab-reflect" hidden>
+        <!-- Reflecting is a conversation. The agent asks, you answer, and the
+             point of it is the three you end up with. -->
+        <section class="section">
+              <div class="section-head">
+                <span class="label" id="reflection-label">Reflection</span>
+                <span class="caption" id="saved"></span>
+              </div>
+
+              <div class="thread" id="thread"></div>
+
+              <p class="caption" id="reflect-intro">
+                Nothing here yet. The agent will read your day and ask you about it.
+              </p>
+
+              <div class="composer">
+                <textarea
+                  id="reflection"
+                  rows="2"
+                  placeholder="Answer here, or press Start to have it open the conversation."
+                  spellcheck="true"
+                ></textarea>
+                <div class="composer-actions">
+                  <button class="btn" id="reflect-send">Start</button>
+                  <span class="caption" id="reflect-hint">&#8984;&#9166; to send</span>
+                </div>
+              </div>
+
+              <div class="takeaways" id="takeaways" hidden>
+                <div class="section-head"><span class="label">Your three</span></div>
+                <label class="takeaway">
+                  <span class="label">Went well</span>
+                  <input type="text" id="take-good" maxlength="240" />
+                </label>
+                <label class="takeaway">
+                  <span class="label">Went badly</span>
+                  <input type="text" id="take-bad" maxlength="240" />
+                </label>
+                <label class="takeaway">
+                  <span class="label">To improve</span>
+                  <input type="text" id="take-improve" maxlength="240" />
+                </label>
+              </div>
+
+              <div class="energy">
+                <span class="label">Energy</span>
+                <div class="energy-scale" id="energy">
+                  <button data-energy="1" aria-pressed="false">1</button>
+                  <button data-energy="2" aria-pressed="false">2</button>
+                  <button data-energy="3" aria-pressed="false">3</button>
+                  <button data-energy="4" aria-pressed="false">4</button>
+                  <button data-energy="5" aria-pressed="false">5</button>
+                </div>
+              </div>
+            </section>
+      </div>
+
+      <div id="tab-sources" hidden>
+      <section class="section">
         <div class="section-head">
           <span class="label">Sources</span>
           <span class="caption" id="sources-count"></span>
         </div>
+
+        <!-- Derived from collected data, never from model output: every row is a
+             real URL. Slack threads join this list when that integration lands. -->
+        <div class="source-tools">
+          <input
+            type="search"
+            id="sources-search"
+            placeholder="Filter by repo, number or title"
+            autocomplete="off"
+          />
+          <div class="source-kinds" id="sources-kinds">
+            <button data-kind="all" aria-pressed="true">All</button>
+            <button data-kind="merged">Merged</button>
+            <button data-kind="opened">Opened</button>
+            <button data-kind="reviewed">Reviewed</button>
+            <button data-kind="commit">Commits</button>
+          </div>
+        </div>
+
         <div class="sources" id="sources"></div>
+        <p class="caption" id="sources-empty" hidden>Nothing matches that filter.</p>
       </section>
-
-
       </div>
 
       <div class="actions">
