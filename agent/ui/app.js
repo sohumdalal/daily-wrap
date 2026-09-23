@@ -27,7 +27,6 @@ const el = {
   goalsTab: $('goals-tab'),
   brand: $('brand'),
   brandmenu: $('brandmenu'),
-  dbbadge: $('dbbadge'),
   goalForm: $('goal-form'),
   goalTitle: $('goal-title'),
   goalCategory: $('goal-category'),
@@ -952,10 +951,6 @@ window.addEventListener('hashchange', applyHash);
   try {
     const server = await api('/api/state');
     state.today = server.today;
-    // Silent on the local database, which is the normal case; named when this
-    // page is reading something else.
-    el.dbbadge.hidden = server.databaseIsLocal !== false;
-    el.dbbadge.textContent = server.database ?? '';
     if (!server.llm) note('ANTHROPIC_API_KEY is not set — wraps cannot be written.', true);
     else if (!server.github) note('GitHub is not configured — the day will be Claude only.', true);
   } catch (err) {
