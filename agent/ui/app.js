@@ -497,6 +497,10 @@ async function load() {
     state.view = await api(`/api/view/${state.period}/${state.key}`);
     render();
     restorePlace();
+    if (focusReflectionOnLoad) {
+      focusReflectionOnLoad = false;
+      focusReflection();
+    }
   } finally {
     el.shell.classList.remove('is-loading');
     if (!firstPaint) busy(false);
@@ -701,25 +705,38 @@ el.goalForm.addEventListener('submit', async (e) => {
   }
 });
 
-/**
- * Jump to today and put the cursor in the reflection. Focusing has to wait for
- * the view to load, since rendering replaces the textarea's value — and it is
- * skipped when already on today's day so pressing Today twice doesn't fight
- * the caret.
- */
-async function goToTodaysReflection() {
-  const alreadyThere = state.period === 'day' && state.key === state.today;
-  if (!alreadyThere) {
-    go('day', state.today);
-    // `go` routes through the hash, so wait for the load it triggers.
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  }
+/** Set while a Today jump is in flight, so load() knows to focus when it lands. */
+let focusReflectionOnLoad = false;
+
+function focusReflection() {
   el.reflection.focus();
   el.reflection.setSelectionRange(
     el.reflection.value.length,
     el.reflection.value.length,
   );
   el.reflection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+/**
+ * Jump to today and put the cursor in the reflection.
+ *
+ * The mode is part of "already there": on the goals page the period and key
+ * are still today's, so testing those alone skips the navigation and then
+ * focuses a textarea inside the hidden shell.
+ *
+ * Focusing waits for the load rather than a timer, because renderReflection
+ * will not overwrite a focused textarea. Winning that race would leave an
+ * empty box on a day that has a reflection.
+ */
+function goToTodaysReflection() {
+  const alreadyThere =
+    state.mode === 'wrap' && state.period === 'day' && state.key === state.today;
+  if (alreadyThere) {
+    focusReflection();
+    return;
+  }
+  focusReflectionOnLoad = true;
+  go('day', state.today);
 }
 
 el.todayJump.addEventListener('click', goToTodaysReflection);
@@ -916,10 +933,24 @@ el.energy.addEventListener('click', (e) => {
   saveReflection();
 });
 
+/** A key pressed inside a field belongs to the field. */
+const isTyping = (target) =>
+  target instanceof HTMLElement &&
+  (target.tagName === 'INPUT' ||
+    target.tagName === 'TEXTAREA' ||
+    target.tagName === 'SELECT' ||
+    target.isContentEditable);
+
 document.addEventListener('keydown', (e) => {
-  // The goals page is a form; leave its keys alone entirely.
+  // The goals page is a form, so its fields keep their own keys. Outside them
+  // the jump to today still works, which is where it is most wanted.
   if (state.mode === 'goals') {
+    if (isTyping(e.target)) return;
     if (e.key === 'Escape') history.back();
+    if (e.key.toLowerCase() === 't' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      goToTodaysReflection();
+    }
     return;
   }
   // Never steal keys from either text box.
