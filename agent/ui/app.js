@@ -361,11 +361,12 @@ function renderThread(view) {
     }),
   );
   el.reflectIntro.hidden = turns.length > 0;
-  el.reflectSend.textContent = turns.length ? 'Send' : 'Start';
+  el.reflectSend.textContent = 'Send';
   el.reflectHint.hidden = turns.length === 0;
-  el.reflection.placeholder = turns.length
-    ? 'Your answer'
-    : 'Answer here, or press Start to have it open the conversation.';
+  el.reflection.placeholder = turns.length ? 'Your answer' : '';
+  // Nothing to answer until it has asked.
+  el.reflection.disabled = turns.length === 0;
+  el.reflectSend.disabled = turns.length === 0 || state.busy;
 }
 
 function renderTakeaways(view) {
@@ -427,6 +428,7 @@ function render() {
   el.collect.hidden = state.period !== 'day';
 
   applyTab();
+  maybeOpenReflection(view);
   renderSpecs(view);
   renderWrap(view);
   renderCovered(view);
@@ -633,12 +635,37 @@ function queueTakeaways() {
   );
 }
 
+/**
+ * Keys this session has already tried to open, so a failed open is not retried
+ * on every render and a revisit does not spend another call.
+ */
+const opened = new Set();
+
+/**
+ * Open the conversation when you arrive with nothing in it. Gated on the
+ * period having a wrap: with nothing to read, the agent has nothing to ask
+ * about, and paging through empty days should not each cost a call.
+ */
+function maybeOpenReflection(view) {
+  if (state.tab !== 'reflect') return;
+  if ((view.turns ?? []).length > 0) return;
+  if (!view.wrap) return;
+  const id = `${view.period}/${view.key}`;
+  if (opened.has(id)) return;
+  opened.add(id);
+  sendReflection();
+}
+
 /** Send a turn, or open the conversation when the box is empty. */
 async function sendReflection() {
   if (state.busy) return;
   const message = el.reflection.value.trim();
   busy(true);
   note(message ? null : 'Reading your day…');
+  if (!message) {
+    el.reflectIntro.hidden = false;
+    el.reflectIntro.textContent = 'Reading your day and your recent ones…';
+  }
   try {
     const res = await api(`/api/reflect/${state.period}/${state.key}`, {
       method: 'POST',
@@ -731,6 +758,7 @@ function setTab(tab) {
   const suffix = tab === 'summary' ? '' : `/${tab}`;
   history.replaceState(null, '', `#${state.period}/${state.key}${suffix}`);
   applyTab();
+  if (state.view) maybeOpenReflection(state.view);
 }
 
 function applyTab() {

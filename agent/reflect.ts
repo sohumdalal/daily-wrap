@@ -11,8 +11,11 @@
 import { z } from 'zod';
 import { generate } from './llm.ts';
 import * as store from './store.ts';
-import { labelFor, type Period } from './time.ts';
-import type { Goal, ReflectionTurn, Takeaways, Wrap } from './types.ts';
+import { addDays, labelFor, spanOf, type Period } from './time.ts';
+import type { Goal, Reflection, ReflectionTurn, Takeaways, Wrap } from './types.ts';
+
+/** How much recent history the conversation is given. */
+const LOOKBACK_DAYS = 10;
 
 /**
  * Everything but the message is optional, and readiness is inferred from
@@ -35,6 +38,11 @@ const ReplySchema = z.object({
 const SYSTEM = `You are helping one engineer reflect on a period of their own
 work, in conversation. You have their record of it in front of you.
 
+You have their recent days too. Use them. The most useful thing you can do is
+notice what recurs: a thing they said they would change and did not, a cost
+they keep paying, a strength they keep leaning on. A question that lands
+because it remembers last week is worth ten generic ones.
+
 Your only goal is that they arrive at three takeaways they believe:
 
   good     the one thing that went well and is worth repeating
@@ -50,11 +58,17 @@ when they have just told you something real, but do not open every message with
 one, and never restate their day back at them: it is on the screen above this
 conversation.
 
-Ask about the things the record cannot answer. Whether the thing they shipped
-was the thing worth shipping. Which hour they would take back. What they were
-avoiding. Where they got lucky. What they would tell someone starting the same
-day tomorrow. Which of these is worth asking depends on what the record shows
-and what they have already said.
+Ask about the things the record cannot answer, and weight it towards where they
+could be better rather than what went well. Whether the thing they shipped was
+the thing worth shipping. Which hour they would take back. What they were
+avoiding. Where they got lucky and should not count on it again. What they
+would tell someone starting the same day tomorrow. Which of these is worth
+asking depends on what the record shows and what they have already said.
+
+Where the history shows them naming the same improvement more than once, ask
+about that directly. Someone repeating an intention without acting on it is the
+single most useful thing this conversation can surface, and the only place they
+will hear it is from you.
 
 Push once when an answer is vague, then let it go. "It was fine" deserves one
 follow-up, not three. You are not running an interrogation, and a person who
@@ -114,11 +128,52 @@ function describeContext(opts: {
   if (opts.energy) out.push(`\nThey rated their energy ${opts.energy}/5.`);
 
   if (opts.goals.length) {
-    out.push(`\nWHAT THEY ARE TRYING TO BECOME:`);
-    for (const g of opts.goals) out.push(`  - [${g.category}] ${g.title}`);
+    out.push(`\nWHAT THEY ARE TRYING TO BECOME. Ask about the distance between
+these and the day:`);
+    for (const g of opts.goals) {
+      out.push(`  - [${g.category}, ${g.horizon}] ${g.title}`);
+      if (g.measure) out.push(`      measured by: ${g.measure}`);
+      if (g.why) out.push(`      why it matters to them: ${g.why}`);
+    }
   }
 
   return out.join('\n');
+}
+
+/**
+ * The days before this one, with what they said about each. This is what lets
+ * a question remember last week instead of treating every day as the first.
+ */
+function describeHistory(
+  wraps: Wrap[],
+  reflections: Reflection[],
+): string {
+  if (!wraps.length && !reflections.length) return '';
+
+  const byKey = new Map(reflections.map((r) => [r.key, r]));
+  const keys = [...new Set([...wraps.map((w) => w.key), ...reflections.map((r) => r.key)])]
+    .sort()
+    .reverse();
+
+  const lines: string[] = [];
+  for (const key of keys) {
+    const wrap = wraps.find((w) => w.key === key);
+    const reflection = byKey.get(key);
+    const parts = [`  ${key}${wrap ? ` — ${wrap.headline}` : ''}`];
+    if (wrap?.grew.length) {
+      for (const g of wrap.grew) parts.push(`      it told them to improve: ${g}`);
+    }
+    const t = reflection?.takeaways;
+    if (t?.good) parts.push(`      they said went well: ${t.good}`);
+    if (t?.bad) parts.push(`      they said went badly: ${t.bad}`);
+    if (t?.improve) parts.push(`      they said to improve: ${t.improve}`);
+    lines.push(parts.join('\n'));
+  }
+
+  return `
+
+THEIR RECENT DAYS, newest first. Look for what repeats:
+${lines.join('\n')}`;
 }
 
 function describeThread(turns: ReflectionTurn[]): string {
@@ -142,13 +197,21 @@ export async function nextReflectionTurn(
   period: Period,
   key: string,
 ): Promise<ReflectReply> {
-  const [wrap, reflection, turns, goals, feedback] = await Promise.all([
-    store.getWrap(period, key),
-    store.getReflection(period, key),
-    store.getTurns(period, key),
-    store.activeGoals(),
-    store.recentFeedback(),
-  ]);
+  // For a day, look back from it. For a rollup, look across the days it covers.
+  const span = spanOf(period, key);
+  const from = period === 'day' ? addDays(key, -LOOKBACK_DAYS) : span.from;
+  const to = period === 'day' ? addDays(key, -1) : span.to;
+
+  const [wrap, reflection, turns, goals, feedback, pastWraps, pastReflections] =
+    await Promise.all([
+      store.getWrap(period, key),
+      store.getReflection(period, key),
+      store.getTurns(period, key),
+      store.activeGoals(),
+      store.recentFeedback(),
+      store.getWrapsBetween('day', from, to),
+      store.getReflectionsBetween('day', from, to),
+    ]);
 
   const corrections = feedback.length
     ? `\n\nCORRECTIONS THIS PERSON HAS GIVEN ABOUT HOW YOU WRITE TO THEM. They
@@ -162,7 +225,9 @@ are binding here too:\n${feedback.map((f) => `  - ${f.note}`).join('\n')}`
       wrap,
       goals,
       energy: reflection?.energy ?? null,
-    }) + describeThread(turns);
+    }) +
+    describeHistory(pastWraps, pastReflections) +
+    describeThread(turns);
 
   const { value, model } = await generate({
     system: SYSTEM + corrections,
