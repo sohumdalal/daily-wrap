@@ -20,6 +20,7 @@ import type {
   Reflection,
   Wrap,
   WrapReason,
+  WrapVersion,
 } from './types.ts';
 
 /** How many preceding days of wraps the model sees, for continuity. */
@@ -33,6 +34,9 @@ const PRIOR_DAYS = 10;
  */
 const MAX_PROMPTS_PER_SESSION = 30;
 const MAX_PROMPT_CHARS = 500;
+
+/** How many earlier takes on the same key the model is shown. */
+const PRIOR_VERSIONS = 3;
 
 /**
  * A sanity bound, not a style rule. Length is governed by the prompt and
@@ -92,6 +96,31 @@ tells you what came of the thinking. It is not the subject.
 A wrap built only from PR titles is a worse wrap. Two people can ship the same
 diff and have had completely different days.
 
+ATTRIBUTION. This matters more than anything else in these instructions.
+
+These sessions are this person working with Claude Code. The prompts are theirs.
+Most of the reading, tracing, editing and writing in between is the assistant's,
+done at their direction. Do not describe the assistant's work as theirs.
+
+Credit them for what the record shows them actually doing: the call they made,
+the constraint they set, the answer they refused to accept, the question that
+changed direction, the thing they noticed looked wrong, what they chose to
+spend the day on, what they decided was good enough.
+
+When the assistant surfaced something, say so, and credit them for what they
+did with it. "Claude flagged the stale query and you decided to rewrite the
+window rather than patch it" is accurate. "You found the stale query" is not,
+and it flatters them in a record whose only value is being true.
+
+For "did", crediting them with shipping their own PR is right; it is their work
+and their name on it. The distinction bites hardest in "learned" and "grew",
+which are claims about their judgement. Getting attribution wrong there does
+not just misreport a fact, it invents a strength they may not have.
+
+Useful verbs for their own acts: asked, directed, rejected, chose, pushed back,
+noticed, insisted, stopped, redirected, decided. Reserve found, traced, wrote,
+debugged and built for what the record shows them doing themselves.
+
 You are also given the wraps of the days just before this one, under PRIOR DAYS.
 Use them for continuity — to recognise work that is ongoing rather than new, and
 to see what has been returned to again and again. Do not restate them, and do
@@ -142,6 +171,12 @@ Return a JSON object with exactly these keys:
             went and looked. Name the best thinking you saw and say why it was
             good — being specific about someone's judgement is the most useful
             thing you can tell them.
+
+            Hold the attribution rule hardest here. What they learned is what
+            their own prompts show them coming to understand, not what the
+            assistant worked out and reported to them. If the day's insight
+            was the assistant's, the honest version is what they did with it:
+            whether they checked it, questioned it, or took it on trust.
 
             Where they went the long way round, say so, and say what it cost.
             Where they pushed back on something and were right, say that too.
@@ -256,6 +291,27 @@ Judge the day against these, not against a generic idea of a good engineer.
 Where the day moved one of them, say which. Where a day of real work moved none
 of them, that is worth saying plainly and is often the most useful thing in the
 whole wrap. Never invent progress against a goal the record does not support.`;
+}
+
+/**
+ * Earlier takes on this same key. A rewrite should improve on what it said
+ * last time rather than restate it, and a take the person disagreed with is
+ * the clearest signal of what not to write again.
+ */
+function describePriorVersions(versions: WrapVersion[]): string {
+  if (!versions.length) return '';
+  const lines = versions.map((v) => {
+    const label = v.reason === 'disagree' ? 'rewritten after they disagreed' : 'earlier';
+    return `  v${v.version} (${label}): ${v.learned || '(nothing written)'}`;
+  });
+  return `
+
+WHAT YOU HAVE ALREADY WRITTEN ABOUT THIS PERIOD, newest first:
+${lines.join('\n')}
+
+Do not restate these. Say something truer or sharper than the last attempt,
+and drop a line that did not land. Where one of these was rewritten after a
+disagreement, the version that followed it is the one they accepted.`;
 }
 
 function bullets(label: string, items: string[]): string {
@@ -387,13 +443,17 @@ export async function writeDayWrap(opts: {
   reason?: WrapReason;
 }): Promise<Wrap> {
   // Oldest first, and excluding today — a day is context for the days after it.
-  const [priors, feedback, goals] = await Promise.all([
+  const [priors, feedback, goals, versions] = await Promise.all([
     store.getWrapsBetween('day', addDays(opts.day, -PRIOR_DAYS), addDays(opts.day, -1)),
     store.recentFeedback(),
     store.activeGoals(),
+    store.listWrapVersions('day', opts.day),
   ]);
 
-  let user = describeDay(opts.day, opts.claude, opts.github) + describePriorDays(priors);
+  let user =
+    describeDay(opts.day, opts.claude, opts.github) +
+    describePriorDays(priors) +
+    describePriorVersions(versions.slice(0, PRIOR_VERSIONS));
   if (opts.reflection?.body) {
     // Their own account of the day outranks the machine record for `learned`
     // and `grew` — it is the only source for what the day felt like.
@@ -424,13 +484,15 @@ export async function writeRollup(
   if (period === 'day') throw new Error('use writeDayWrap for a single day');
   const { from, to } = spanOf(period, key);
 
-  const [dayWraps, dayReflections, ownReflection, feedback, goals] = await Promise.all([
-    store.getWrapsBetween('day', from, to),
-    store.getReflectionsBetween('day', from, to),
-    store.getReflection(period, key),
-    store.recentFeedback(),
-    store.activeGoals(),
-  ]);
+  const [dayWraps, dayReflections, ownReflection, feedback, goals, versions] =
+    await Promise.all([
+      store.getWrapsBetween('day', from, to),
+      store.getReflectionsBetween('day', from, to),
+      store.getReflection(period, key),
+      store.recentFeedback(),
+      store.activeGoals(),
+      store.listWrapVersions(period, key),
+    ]);
 
   if (!dayWraps.length) {
     throw new NoDaysToRollUp(`no daily wraps between ${from} and ${to} to roll up`);
@@ -461,6 +523,8 @@ export async function writeRollup(
   if (ownReflection?.body) {
     user += `\n\nTHEIR OWN REFLECTION ON THE WHOLE ${period.toUpperCase()} (authoritative):\n${ownReflection.body}`;
   }
+
+  user += describePriorVersions(versions.slice(0, PRIOR_VERSIONS));
 
   const { value, model } = await generate({
     system: ROLLUP_SYSTEM + describeGoals(goals) + describeFeedback(feedback),

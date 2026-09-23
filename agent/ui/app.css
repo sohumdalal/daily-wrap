@@ -522,12 +522,12 @@ body {
 
 .bullets li {
   position: relative;
-  padding: 0 0 0 var(--sm);
-  margin-bottom: var(--xs);
+  padding: 0 0 0 var(--md);
+  margin-bottom: var(--sm);
   font-size: 16px;
-  font-weight: 500;
-  line-height: 1.4;
-  letter-spacing: 0.08px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0;
   color: var(--ink);
 }
 
@@ -536,10 +536,36 @@ body {
   content: '';
   position: absolute;
   left: 0;
-  top: 0.45em;
+  top: 0.55em;
   width: 10px;
   height: 1px;
   background: var(--hairline);
+}
+
+/* "did" is ordered by consequence, so its numbers carry that rather than an
+   identical marker on every line. Leading zeros read as a spec sheet, which is
+   how the system already sets its figures. */
+#did {
+  counter-reset: did;
+}
+
+#did li {
+  counter-increment: did;
+  padding-left: var(--lg);
+}
+
+#did li::before {
+  content: counter(did, decimal-leading-zero);
+  top: 0;
+  width: auto;
+  height: auto;
+  background: none;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 2;
+  letter-spacing: 0.6px;
+  font-variant-numeric: tabular-nums;
 }
 
 .bullets.quiet li {
@@ -756,12 +782,12 @@ body {
    list: larger, looser, and the full measure. */
 .take {
   margin: 0;
-  font-size: 20px;
+  font-size: 17px;
   font-weight: 400;
-  line-height: 1.55;
+  line-height: 1.65;
   letter-spacing: 0;
   color: var(--ink);
-  max-width: 62ch;
+  max-width: 64ch;
 }
 
 .disagree {
@@ -802,68 +828,6 @@ body {
 .corrections .label {
   display: block;
   padding-bottom: var(--xxs);
-}
-
-/* ── Version history ────────────────────────────────────────────────────── */
-
-.history {
-  padding-top: var(--sm);
-}
-
-.history-toggle {
-  appearance: none;
-  background: none;
-  border: 0;
-  padding: 0;
-  color: var(--muted);
-  cursor: pointer;
-  font: inherit;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 1.1px;
-  text-transform: uppercase;
-}
-
-.history-toggle:hover {
-  color: var(--ink);
-}
-
-.history-list {
-  padding-top: var(--xs);
-}
-
-.history-entry {
-  padding: var(--xs) 0;
-  border-top: 1px solid var(--hairline);
-}
-
-.history-entry:last-child {
-  border-bottom: 1px solid var(--hairline);
-}
-
-.history-meta {
-  display: flex;
-  gap: var(--xxs);
-  align-items: baseline;
-  padding-bottom: var(--xxxs);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 1.1px;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-/* A version you forced by disagreeing is the interesting one. */
-.history-entry[data-reason='disagree'] .history-meta {
-  color: var(--primary);
-}
-
-.history-take {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--body);
-  max-width: 62ch;
 }
 
 /* ── Sources ────────────────────────────────────────────────────────────── */
