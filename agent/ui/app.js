@@ -82,6 +82,8 @@ const el = {
   provenance: $('provenance'),
   reflection: $('reflection'),
   thread: $('thread'),
+  chatContext: $('chat-context'),
+  chatThinking: $('chat-thinking'),
   reflectIntro: $('reflect-intro'),
   reflectSend: $('reflect-send'),
   reflectHint: $('reflect-hint'),
@@ -89,7 +91,6 @@ const el = {
   takeGood: $('take-good'),
   takeBad: $('take-bad'),
   takeImprove: $('take-improve'),
-  reflectionLabel: $('reflection-label'),
   energy: $('energy'),
   saved: $('saved'),
   wrap: $('wrap'),
@@ -102,6 +103,8 @@ const TABS = ['summary', 'reflect', 'sources'];
 let state = {
   /** 'wrap' shows a period; 'goals' shows the goals page. */
   mode: 'wrap',
+  /** True while the agent is composing a reply, which the chat shows itself. */
+  reflecting: false,
   period: 'day',
   /** Which half of a period is on screen. */
   tab: 'summary',
@@ -340,33 +343,55 @@ function renderSources(view) {
   );
 }
 
+/** Keep the newest message in view without yanking the whole page. */
+function scrollChatToEnd() {
+  requestAnimationFrame(() => {
+    el.thread.scrollTop = el.thread.scrollHeight;
+  });
+}
+
 function renderThread(view) {
   const turns = view.turns ?? [];
   el.thread.replaceChildren(
     ...turns.map((t) => {
       const row = document.createElement('div');
-      row.className = 'turn';
+      row.className = 'msg';
       row.dataset.role = t.role;
 
-      const role = document.createElement('span');
-      role.className = 'turn-role';
-      role.textContent = t.role === 'agent' ? 'Daily Wrap' : 'You';
+      // Only the agent is labelled; your own messages are obviously yours.
+      if (t.role === 'agent') {
+        const role = document.createElement('span');
+        role.className = 'msg-role';
+        role.textContent = 'Daily Wrap';
+        row.append(role);
+      }
 
       const text = document.createElement('p');
-      text.className = 'turn-text';
+      text.className = 'msg-text';
       text.textContent = t.text;
-
-      row.append(role, text);
+      row.append(text);
       return row;
     }),
   );
-  el.reflectIntro.hidden = turns.length > 0;
-  el.reflectSend.textContent = 'Send';
+
+  const waiting = state.reflecting;
+  el.chatThinking.hidden = !waiting;
+  el.reflectIntro.hidden = turns.length > 0 || waiting;
   el.reflectHint.hidden = turns.length === 0;
-  el.reflection.placeholder = turns.length ? 'Your answer' : '';
   // Nothing to answer until it has asked.
-  el.reflection.disabled = turns.length === 0;
-  el.reflectSend.disabled = turns.length === 0 || state.busy;
+  el.reflection.disabled = turns.length === 0 || waiting;
+  el.reflectSend.disabled = turns.length === 0 || waiting;
+  scrollChatToEnd();
+}
+
+/** One paragraph of context above the chat. The day itself is a tab away. */
+function renderChatContext(view) {
+  const take = view.wrap?.learned;
+  el.chatContext.textContent = take
+    ? take
+    : view.wrap
+      ? 'No read written for this day yet.'
+      : 'Nothing wrapped for this day yet, so there is nothing to read back.';
 }
 
 function renderTakeaways(view) {
@@ -384,11 +409,32 @@ function renderTakeaways(view) {
   }
 }
 
+const clock = (iso) =>
+  new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+/**
+ * Where this screen's contents came from and when. GitHub's commit search is
+ * indexed with a lag, so a count can be short simply because the day was read
+ * too early; saying when it was read makes that visible instead of puzzling.
+ */
+function renderProvenance(view) {
+  const parts = [];
+  if (view.collectedAt) parts.push(`Sources read ${clock(view.collectedAt)}`);
+  if (view.wrap) {
+    parts.push(
+      `wrapped ${clock(view.wrap.generatedAt)}` +
+        (view.wrap.model ? ` by ${view.wrap.model}` : ''),
+    );
+  }
+  el.provenance.hidden = parts.length === 0;
+  el.provenance.textContent = parts.join(' · ');
+}
+
 function renderReflection(view) {
+  renderChatContext(view);
   renderThread(view);
   renderTakeaways(view);
 
-  el.reflectionLabel.textContent = 'Reflection';
   for (const button of el.energy.querySelectorAll('button')) {
     button.setAttribute(
       'aria-pressed',
@@ -648,6 +694,7 @@ const opened = new Set();
  */
 function maybeOpenReflection(view) {
   if (state.tab !== 'reflect') return;
+  if (state.reflecting) return;
   if ((view.turns ?? []).length > 0) return;
   if (!view.wrap) return;
   const id = `${view.period}/${view.key}`;
@@ -657,32 +704,50 @@ function maybeOpenReflection(view) {
 }
 
 /** Send a turn, or open the conversation when the box is empty. */
+/**
+ * Send a turn, or open the conversation when the box is empty.
+ *
+ * The page is not dimmed for this: the chat shows its own thinking state, and
+ * blanking the rest of the screen while a reply composes reads as a failure.
+ * Your message is shown immediately rather than waiting for the round trip.
+ */
 async function sendReflection() {
-  if (state.busy) return;
+  if (state.reflecting) return;
   const message = el.reflection.value.trim();
-  busy(true);
-  note(message ? null : 'Reading your day…');
-  if (!message) {
-    el.reflectIntro.hidden = false;
-    el.reflectIntro.textContent = 'Reading your day and your recent ones…';
+
+  state.reflecting = true;
+  if (message && state.view) {
+    state.view.turns = [
+      ...(state.view.turns ?? []),
+      { id: `pending-${Date.now()}`, role: 'person', text: message, createdAt: '' },
+    ];
+    el.reflection.value = '';
   }
+  if (state.view) renderThread(state.view);
+
   try {
     const res = await api(`/api/reflect/${state.period}/${state.key}`, {
       method: 'POST',
       body: JSON.stringify({ message }),
     });
-    el.reflection.value = '';
     if (state.view) {
       state.view.turns = res.turns;
       state.view.reflection = res.reflection;
     }
-    renderReflection(state.view);
     note(null);
-    el.thread.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   } catch (err) {
+    // Put the unsent message back so it is not lost to a failed request.
+    if (message) el.reflection.value = message;
+    if (state.view) {
+      state.view.turns = (state.view.turns ?? []).filter(
+        (t) => !String(t.id).startsWith('pending-'),
+      );
+    }
     note(err.message, true);
   } finally {
-    busy(false);
+    state.reflecting = false;
+    if (state.view) renderReflection(state.view);
+    el.reflection.focus();
   }
 }
 
@@ -1072,6 +1137,12 @@ el.collect.addEventListener('click', collectNow);
 
 el.reflectSend.addEventListener('click', sendReflection);
 
+// Grow with the text, up to the height the stylesheet caps it at.
+el.reflection.addEventListener('input', () => {
+  el.reflection.style.height = 'auto';
+  el.reflection.style.height = `${el.reflection.scrollHeight}px`;
+});
+
 for (const node of [el.takeGood, el.takeBad, el.takeImprove]) {
   node.addEventListener('input', queueTakeaways);
   node.addEventListener('blur', () => {
@@ -1114,7 +1185,7 @@ document.addEventListener('keydown', (e) => {
   // Never steal keys from either text box.
   if (e.target === el.reflection) {
     if (e.key === 'Escape') el.reflection.blur();
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendReflection();
     }

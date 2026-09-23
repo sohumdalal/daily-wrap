@@ -990,67 +990,193 @@ body {
   white-space: nowrap;
 }
 
-/* ── Reflection conversation ────────────────────────────────────────────── */
+/* ── Reflection chat ───────────────────────────────────────────────────── */
 
-/* A transcript, not a chat app: hairline-separated turns with a role label,
-   which is how the system sets a list of anything. Your words carry the ink
-   because they are the part of this that becomes the record. */
-.thread {
+.chat-context {
+  margin: 0;
+  max-width: 64ch;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--body);
+}
+
+/* A window, bounded by hairlines rather than a lifted panel: the log scrolls
+   inside it and the composer is fixed to its foot, so the reply box does not
+   walk down the page as the conversation grows. */
+.chat {
   display: flex;
   flex-direction: column;
-  max-width: 68ch;
+  max-width: 72ch;
+  margin-top: var(--lg);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-none);
+  background: var(--canvas);
 }
 
-.turn {
-  padding: var(--sm) 0;
-  border-top: 1px solid var(--hairline);
+.chat-log {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm);
+  max-height: 52vh;
+  overflow-y: auto;
+  padding: var(--sm);
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline) transparent;
 }
 
-.turn:first-child {
-  border-top: 0;
-  padding-top: 0;
+.chat-log:empty {
+  display: none;
 }
 
-.turn-role {
-  display: block;
+.msg {
+  display: flex;
+  flex-direction: column;
+  max-width: 88%;
+}
+
+.msg-role {
   padding-bottom: var(--xxxs);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 1.1px;
   text-transform: uppercase;
   color: var(--muted);
 }
 
-.turn-text {
+.msg-text {
   margin: 0;
-  font-size: 16px;
-  line-height: 1.55;
+  font-size: 15px;
+  line-height: 1.6;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
-.turn[data-role='agent'] .turn-text {
+/* The agent speaks plainly on the canvas. Your own words sit in a block,
+   aligned right, because they are the half that becomes the record. */
+.msg[data-role='agent'] .msg-text {
   color: var(--body);
 }
 
-.turn[data-role='person'] .turn-text {
+.msg[data-role='person'] {
+  align-self: flex-end;
+}
+
+.msg[data-role='person'] .msg-text {
+  padding: var(--xxs) var(--xs);
+  background: var(--canvas-elevated);
   color: var(--ink);
 }
 
-.composer {
-  padding-top: var(--sm);
-  max-width: 68ch;
+/* Thinking, in the shape of the message it will become. */
+.chat-thinking {
+  padding: 0 var(--sm) var(--sm);
 }
 
-.composer-actions {
-  display: flex;
+.dots {
+  display: inline-flex;
+  gap: 4px;
   align-items: center;
-  gap: var(--xs);
-  padding-top: var(--xs);
+  height: 15px;
 }
 
-#reflect-intro,
-#reflect-hint {
+.dots i {
+  width: 5px;
+  height: 5px;
+  background: var(--muted);
+  animation: dot 1.2s ease-in-out infinite;
+}
+
+.dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.25;
+  }
+  30% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dots i {
+    animation: none;
+    opacity: 0.55;
+  }
+}
+
+.chat-intro {
   margin: 0;
+  padding: var(--sm);
+}
+
+.chat-composer {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--xxs);
+  padding: var(--xxs);
+  border-top: 1px solid var(--hairline);
+}
+
+.chat-composer textarea {
+  flex: 1;
+  min-height: 40px;
+  max-height: 180px;
+  border: 0;
+  border-radius: var(--r-none);
+  background: none;
+  padding: var(--xxs) var(--xs);
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+  resize: none;
+}
+
+.chat-composer textarea:focus-visible {
+  outline: none;
+}
+
+.chat-composer textarea::placeholder {
+  color: var(--muted);
+}
+
+/* Square and sharp, the size of the line it sits beside. */
+.chat-send {
+  appearance: none;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: var(--r-none);
+  background: var(--primary);
+  color: var(--on-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 17px;
+  line-height: 1;
+}
+
+.chat-send:active {
+  background: var(--primary-active);
+}
+
+.chat-send:disabled {
+  background: var(--canvas-elevated);
+  color: var(--muted);
+  cursor: default;
+}
+
+.chat-hint {
+  margin: var(--xxs) 0 0;
+  max-width: 72ch;
 }
 
 /* ── The three ──────────────────────────────────────────────────────────── */
