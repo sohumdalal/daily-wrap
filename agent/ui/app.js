@@ -51,6 +51,9 @@ const el = {
   next: $('next'),
   dateLabel: $('date-label'),
   todayBadge: $('today-badge'),
+  tabs: $('tabs'),
+  tabSummary: $('tab-summary'),
+  tabReflect: $('tab-reflect'),
   empty: $('empty'),
   specs: $('specs'),
   specsRule: $('specs-rule'),
@@ -91,10 +94,14 @@ const el = {
   note: $('note'),
 };
 
+const TABS = ['summary', 'reflect'];
+
 let state = {
   /** 'wrap' shows a period; 'goals' shows the goals page. */
   mode: 'wrap',
   period: 'day',
+  /** Which half of a period is on screen. */
+  tab: 'summary',
   key: null,
   today: null,
   view: null,
@@ -392,6 +399,7 @@ function render() {
       : `Where to improve next ${state.period}`;
   el.collect.hidden = state.period !== 'day';
 
+  applyTab();
   renderSpecs(view);
   renderWrap(view);
   renderCovered(view);
@@ -523,6 +531,8 @@ async function load() {
     restorePlace();
     if (focusReflectionOnLoad) {
       focusReflectionOnLoad = false;
+      setTab('reflect');
+      applyTab();
       focusReflection();
     }
   } finally {
@@ -673,10 +683,32 @@ window.addEventListener('beforeunload', rememberPlace);
 function go(period, key, replace = false) {
   rememberPlace();
   state.mode = 'wrap';
-  const hash = `#${period}/${key}`;
+  // Moving to another period keeps whichever half you were reading.
+  const suffix = state.tab === 'summary' ? '' : `/${state.tab}`;
+  const hash = `#${period}/${key}${suffix}`;
   if (replace) history.replaceState(null, '', hash);
   else location.hash = hash;
   if (replace) applyHash();
+}
+
+/**
+ * Show one half of a period. Switching is not navigation, so it replaces the
+ * history entry rather than adding one, while still living in the URL.
+ */
+function setTab(tab) {
+  if (!TABS.includes(tab) || tab === state.tab) return;
+  state.tab = tab;
+  const suffix = tab === 'summary' ? '' : `/${tab}`;
+  history.replaceState(null, '', `#${state.period}/${state.key}${suffix}`);
+  applyTab();
+}
+
+function applyTab() {
+  el.tabSummary.hidden = state.tab !== 'summary';
+  el.tabReflect.hidden = state.tab !== 'reflect';
+  for (const button of el.tabs.querySelectorAll('button')) {
+    button.setAttribute('aria-current', String(button.dataset.tab === state.tab));
+  }
 }
 
 /** Swap which of the two shells is on screen, and mark the nav. */
@@ -707,11 +739,12 @@ function applyHash() {
     return;
   }
 
-  const [period, key] = raw.split('/');
+  const [period, key, tab] = raw.split('/');
   const valid = ['day', 'week', 'month', 'year'].includes(period) && key;
   state.mode = 'wrap';
   state.period = valid ? period : 'day';
   state.key = valid ? key : keyForToday(state.period, state.today);
+  state.tab = TABS.includes(tab) ? tab : 'summary';
   applyMode();
   load().catch((err) => note(err.message, true));
 }
@@ -774,10 +807,12 @@ function goToTodaysReflection() {
   const alreadyThere =
     state.mode === 'wrap' && state.period === 'day' && state.key === state.today;
   if (alreadyThere) {
+    setTab('reflect');
     focusReflection();
     return;
   }
   focusReflectionOnLoad = true;
+  state.tab = 'reflect';
   go('day', state.today);
 }
 
@@ -949,6 +984,11 @@ el.disputeSend.addEventListener('click', async () => {
     'Noted. Rewriting with that in mind, and keeping it for next time…',
     { note },
   );
+});
+
+el.tabs.addEventListener('click', (e) => {
+  const tab = e.target.dataset?.tab;
+  if (tab) setTab(tab);
 });
 
 el.prev.addEventListener('click', () => go(state.period, shiftKey(state.period, state.key, -1)));

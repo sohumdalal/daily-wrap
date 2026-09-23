@@ -14,20 +14,22 @@ import * as store from './store.ts';
 import { labelFor, type Period } from './time.ts';
 import type { Goal, ReflectionTurn, Takeaways, Wrap } from './types.ts';
 
+/**
+ * Everything but the message is optional, and readiness is inferred from
+ * whether a draft came back rather than asked for as a separate flag. A
+ * required field the model can forget throws away an otherwise usable reply,
+ * and it forgot `ready`.
+ */
 const ReplySchema = z.object({
   /** One question, or a short acknowledgement plus one question. */
   message: z.string().min(1).max(600),
-  /**
-   * A draft of the three, offered once there is enough to draw on. Empty
-   * strings until then, so the fields are never filled with a guess.
-   */
-  takeaways: z.object({
-    good: z.string().max(240),
-    bad: z.string().max(240),
-    improve: z.string().max(240),
-  }),
-  /** Whether the three are worth showing yet. */
-  ready: z.boolean(),
+  takeaways: z
+    .object({
+      good: z.string().max(400).optional(),
+      bad: z.string().max(400).optional(),
+      improve: z.string().max(400).optional(),
+    })
+    .optional(),
 });
 
 const SYSTEM = `You are helping one engineer reflect on a period of their own
@@ -66,9 +68,9 @@ gave you and go one level deeper.
 
 THE TAKEAWAYS
 
-Set ready to false and leave the three empty until they have said enough for a
-draft to be theirs rather than yours. Two or three exchanges of substance is
-usually enough; one short answer is not.
+Leave the three out entirely until they have said enough for a draft to be
+theirs rather than yours. Two or three exchanges of substance is usually
+enough; one short answer is not.
 
 When you do draft them, use their words, not a paraphrase into your register.
 They will edit these, so a draft that sounds like them is worth more than one
@@ -84,7 +86,9 @@ theirs; most of the work in between is the assistant's, done at their
 direction. Do not ask them about, or credit them with, work the record shows
 the assistant doing. Ask about the calls they made.
 
-Reply with a JSON object only.`;
+Reply with a JSON object holding "message", plus "takeaways" with "good",
+"bad" and "improve" once you are drafting them. Leave "takeaways" out
+entirely until then.`;
 
 function describeContext(opts: {
   period: Period;
@@ -167,5 +171,16 @@ are binding here too:\n${feedback.map((f) => `  - ${f.note}`).join('\n')}`
     maxTokens: 2048,
   });
 
-  return { ...value, model };
+  const takeaways: Takeaways = {
+    good: value.takeaways?.good?.trim() ?? '',
+    bad: value.takeaways?.bad?.trim() ?? '',
+    improve: value.takeaways?.improve?.trim() ?? '',
+  };
+
+  return {
+    message: value.message,
+    takeaways,
+    ready: Boolean(takeaways.good || takeaways.bad || takeaways.improve),
+    model,
+  };
 }

@@ -166,6 +166,10 @@
           </div>
           <span class="label" id="date-label"></span>
           <span class="badge" id="today-badge" hidden>Today</span>
+          <div class="tabs" id="tabs">
+            <button data-tab="summary" aria-current="true">Summary</button>
+            <button data-tab="reflect">Reflection</button>
+          </div>
         </div>
       </header>
 
@@ -174,6 +178,7 @@
 
       <hr class="rule" id="specs-rule" hidden />
 
+      <div id="tab-summary">
       <p class="hero-empty" id="empty" hidden>Nothing wrapped yet.</p>
 
       <section class="section" id="did-section" hidden>
@@ -206,8 +211,11 @@
           <ul class="bullets quiet" id="corrections-list"></ul>
         </div>
       </section>
+      </div>
+
       <!-- Reflecting is a conversation. The agent asks, you answer, and the
            point of it is the three you end up with. -->
+      <div id="tab-reflect" hidden>
       <section class="section">
         <div class="section-head">
           <span class="label" id="reflection-label">Reflection</span>
@@ -284,6 +292,8 @@
         <div class="sources" id="sources"></div>
       </section>
 
+
+      </div>
 
       <div class="actions">
         <button class="btn" id="wrap">Wrap the day</button>

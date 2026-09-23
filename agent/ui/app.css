@@ -434,6 +434,38 @@ body {
   gap: var(--xs);
 }
 
+/* Same treatment as the period switcher in the header, so the two read as the
+   same kind of control at two levels. */
+.tabs {
+  display: flex;
+  gap: var(--xs);
+  margin-left: auto;
+}
+
+.tabs button {
+  appearance: none;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  padding: var(--xxs) 0;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+}
+
+.tabs button:hover {
+  color: var(--body);
+}
+
+.tabs button[aria-current='true'] {
+  color: var(--ink);
+  border-bottom-color: var(--primary);
+}
+
 .stepper {
   display: flex;
   gap: var(--xxxs);
