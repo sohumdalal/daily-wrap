@@ -540,6 +540,7 @@ async function api(path, options) {
 async function load() {
   state.view = await api(`/api/view/${state.period}/${state.key}`);
   render();
+  restorePlace();
 }
 
 async function run(path, pending, body) {
@@ -611,9 +612,59 @@ function queueSave() {
   saveTimer = setTimeout(saveReflection, 700);
 }
 
+// ── Resuming after a reload ────────────────────────────────────────────────
+
+/**
+ * A reload restores the day from the hash, but not the scroll position or an
+ * unsent reflection, so it lands you at the top of a page you were part way
+ * down. Both are per-key and per-tab, which is what sessionStorage is for.
+ * Every access is guarded: a private window or blocked site data throws here
+ * rather than returning empty.
+ */
+const resumeKey = () => `dw:resume:${state.mode}:${state.period}:${state.key}`;
+
+function rememberPlace() {
+  if (!state.key) return;
+  try {
+    sessionStorage.setItem(
+      resumeKey(),
+      JSON.stringify({ scroll: window.scrollY, draft: el.reflection.value }),
+    );
+  } catch {
+    // No session storage. Losing the position is not worth failing over.
+  }
+}
+
+function restorePlace() {
+  let saved = null;
+  try {
+    const raw = sessionStorage.getItem(resumeKey());
+    if (raw) saved = JSON.parse(raw);
+  } catch {
+    saved = null;
+  }
+  if (!saved) return;
+
+  // Only when it differs from what the server returned, so a reflection saved
+  // from another tab is not overwritten by a stale draft.
+  if (typeof saved.draft === 'string' && saved.draft !== el.reflection.value) {
+    const stored = state.view?.reflection?.body ?? '';
+    if (saved.draft !== stored) el.reflection.value = saved.draft;
+  }
+  if (typeof saved.scroll === 'number' && saved.scroll > 0) {
+    // After render, so the page is tall enough to scroll to.
+    requestAnimationFrame(() => window.scrollTo(0, saved.scroll));
+  }
+}
+
+// Fires on reload, tab close, and navigation away.
+window.addEventListener('pagehide', rememberPlace);
+window.addEventListener('beforeunload', rememberPlace);
+
 // ── Routing ────────────────────────────────────────────────────────────────
 
 function go(period, key, replace = false) {
+  rememberPlace();
   state.mode = 'wrap';
   const hash = `#${period}/${key}`;
   if (replace) history.replaceState(null, '', hash);
