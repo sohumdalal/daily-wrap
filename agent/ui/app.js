@@ -35,6 +35,7 @@ const el = {
   goalWhy: $('goal-why'),
   goalList: $('goal-list'),
   goalsEmpty: $('goals-empty'),
+  goalsLoading: $('goals-loading'),
   periods: $('periods'),
   todayJump: $('today-jump'),
   datefield: $('datefield'),
@@ -319,6 +320,8 @@ async function toggleHistory() {
   el.historyList.hidden = false;
   if (el.historyList.childElementCount) return;
 
+  const label = el.historyToggle.textContent;
+  el.historyToggle.textContent = 'Loading…';
   try {
     const { versions } = await api(`/api/versions/${state.period}/${state.key}`);
     el.historyList.replaceChildren(
@@ -351,6 +354,8 @@ async function toggleHistory() {
     );
   } catch (err) {
     note(err.message, true);
+  } finally {
+    el.historyToggle.textContent = label;
   }
 }
 
@@ -494,12 +499,18 @@ function goalRow(goal) {
 }
 
 async function loadGoals() {
+  // Bars only while there is nothing to show; a refresh keeps the current list.
+  const blank = el.goalList.childElementCount === 0;
+  el.goalsLoading.hidden = !blank;
+  el.goalsEmpty.hidden = true;
   try {
     const { goals } = await api('/api/goals');
     el.goalList.replaceChildren(...goals.map(goalRow));
     el.goalsEmpty.hidden = goals.length > 0;
   } catch (err) {
     note(err.message, true);
+  } finally {
+    el.goalsLoading.hidden = true;
   }
 }
 
@@ -537,10 +548,21 @@ async function api(path, options) {
   return body;
 }
 
+/** True until the first view has rendered, which is the only time bars beat dimming. */
+let firstPaint = true;
+
 async function load() {
-  state.view = await api(`/api/view/${state.period}/${state.key}`);
-  render();
-  restorePlace();
+  if (firstPaint) el.shell.classList.add('is-loading');
+  else busy(true);
+  try {
+    state.view = await api(`/api/view/${state.period}/${state.key}`);
+    render();
+    restorePlace();
+  } finally {
+    el.shell.classList.remove('is-loading');
+    if (!firstPaint) busy(false);
+    firstPaint = false;
+  }
 }
 
 async function run(path, pending, body) {

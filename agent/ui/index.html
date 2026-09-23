@@ -125,6 +125,10 @@
 
       <section class="section">
         <div class="section-head"><span class="label">Your goals</span></div>
+        <div class="skeleton-goals" id="goals-loading" aria-hidden="true">
+          <div class="sk sk-line"></div>
+          <div class="sk sk-line short"></div>
+        </div>
         <div class="goals" id="goal-list"></div>
         <p class="caption" id="goals-empty" hidden>
           Nothing set yet. Wraps will read your days without a direction to
@@ -133,7 +137,26 @@
       </section>
     </main>
 
-    <main class="shell" id="shell">
+    <main class="shell is-loading" id="shell">
+      <!-- Shown until the first view arrives. Matches the real page's shape so
+           the content does not jump when it replaces this. -->
+      <div class="skeleton" aria-hidden="true">
+        <div class="sk sk-date"></div>
+        <hr class="rule" />
+        <div class="sk-specs">
+          <div><div class="sk sk-num"></div><div class="sk sk-tag"></div></div>
+          <div><div class="sk sk-num"></div><div class="sk sk-tag"></div></div>
+          <div><div class="sk sk-num"></div><div class="sk sk-tag"></div></div>
+          <div><div class="sk sk-num"></div><div class="sk sk-tag"></div></div>
+        </div>
+        <hr class="rule" />
+        <div class="sk-lines">
+          <div class="sk sk-tag"></div>
+          <div class="sk sk-line"></div>
+          <div class="sk sk-line short"></div>
+          <div class="sk sk-line"></div>
+        </div>
+      </div>
       <!-- The day in numbers is the top of the page. -->
       <header class="hero">
         <div class="hero-date">
