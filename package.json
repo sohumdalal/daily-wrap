@@ -8,7 +8,9 @@
     "dev": "bun --watch scripts/dev.ts",
     "start": "bun agent/index.ts",
     "typecheck": "tsc --noEmit",
-    "nightly": "bun scripts/nightly.ts"
+    "nightly": "bun scripts/nightly.ts",
+    "check:ui": "bun scripts/check-ui.ts",
+    "check": "tsc --noEmit && bun scripts/check-ui.ts"
   },
   "main": "./agent/index.ts",
   "dependencies": {

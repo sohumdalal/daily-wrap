@@ -218,6 +218,27 @@ function renderSpecs(view) {
   el.specsRule.hidden = false;
 }
 
+const clock = (iso) =>
+  new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+/**
+ * Where this screen's contents came from and when. GitHub's commit search is
+ * indexed with a lag, so a count can be short simply because the day was read
+ * too early; saying when it was read makes that visible instead of puzzling.
+ */
+function renderProvenance(view) {
+  const parts = [];
+  if (view.collectedAt) parts.push(`Sources read ${clock(view.collectedAt)}`);
+  if (view.wrap) {
+    parts.push(
+      `wrapped ${clock(view.wrap.generatedAt)}` +
+        (view.wrap.model ? ` by ${view.wrap.model}` : ''),
+    );
+  }
+  el.provenance.hidden = parts.length === 0;
+  el.provenance.textContent = parts.join(' · ');
+}
+
 function renderWrap(view) {
   const wrap = view.wrap;
   const hasWrap = Boolean(wrap && wrap.did.length);
@@ -381,6 +402,24 @@ function renderThread(view) {
   el.reflection.disabled = turns.length === 0 || waiting;
   el.reflectSend.disabled = turns.length === 0 || waiting;
   scrollChatToEnd();
+}
+
+/**
+ * The three, always editable. They sit on the summary tab and are the point of
+ * the whole record, so they are shown whether or not the chat has drafted
+ * anything: you can write them yourself without talking to anyone.
+ */
+function renderTakeaways(view) {
+  const t = view.reflection?.takeaways ?? { good: '', bad: '', improve: '' };
+  el.takeaways.hidden = false;
+  for (const [field, node] of [
+    ['good', el.takeGood],
+    ['bad', el.takeBad],
+    ['improve', el.takeImprove],
+  ]) {
+    // Never overwrite what is being typed.
+    if (document.activeElement !== node) node.value = t[field] ?? '';
+  }
 }
 
 function renderReflection(view) {

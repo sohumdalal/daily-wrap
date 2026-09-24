@@ -130,8 +130,14 @@ Requires Bun and Postgres on `localhost:5432`.
 createdb daily_wrap
 bun install
 bun run dev          # http://localhost:3002, migrations run on boot
-bun run typecheck
+bun run check        # typecheck, then the UI checks below
 ```
+
+`bun run check:ui` covers the hand-written UI, where neither `tsc` nor
+`bun build` helps: both pass on a script that calls a function nobody defined,
+and the page then fails at the call. It verifies that every function called is
+defined, every id looked up exists in the markup, and every class set has a
+rule in the stylesheet.
 
 `scripts/dev.ts` reads `.env.local` first (gitignored — the right place for a
 database URL), then `~/.ast/project-configs.json`, and takes a live GitHub token
