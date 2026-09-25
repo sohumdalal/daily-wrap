@@ -17,7 +17,8 @@
 # actually happens: /invite @Daily Wrap
 display_information:
   name: Daily Wrap
-  description: React :brain: to a message to keep it as feedback in your daily wrap.
+  # Quoted: an unquoted ":brain: " reads as a nested mapping in YAML.
+  description: "React with the brain emoji to keep a message as feedback in your daily wrap."
   background_color: "#181818"
 features:
   bot_user:
