@@ -231,6 +231,19 @@ judgement that this mattered.
 It earns a tab of its own, because feedback accumulates across days and is
 worth reading as a list rather than only inside the day it landed on.
 
+`actionable_reactions` in `astropods.yml` is local-only, and a pre-fill for the
+deploy form: the spec has no production home for it, because `SlackConfig()` is
+a method on `Dev` alone. **At deploy, set "Actionable Reactions" to `brain`
+under the Slack toggle**, or the adapter drops every reaction. Its sibling
+"Allowed Channels" restricts which channels it listens in, and a value there
+silently ignores reactions everywhere else. Both are visible in the sidecar's
+boot line:
+
+```
+[Slack] Adapter initialized (Socket Mode: true, observe channels: [],
+        actionable reactions: [brain], allowed channels: [], ...)
+```
+
 Setup is a manifest, not a click-through: `slack-app-manifest.yml` at the repo
 root carries the scopes and the `reaction_added` subscription. Socket Mode means
 no public request URL. Astropods asks for `SLACK_BOT_TOKEN` (`xoxb-`) and

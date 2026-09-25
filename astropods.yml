@@ -64,7 +64,9 @@ dev:
     messaging:
       adapters: [slack]
       slack:
-        # Only reactions listed here are forwarded; an empty list drops them
-        # all. The adapter fetches the reacted message's text before sending.
+        # Local only, and a pre-fill for the deploy form: the spec has no
+        # production home for this, since SlackConfig() exists on Dev alone.
+        # At deploy, set "Actionable Reactions" to brain under the Slack
+        # toggle. The adapter drops every reaction when that list is empty.
         actionable_reactions: [brain]
   command: bun --watch run start
