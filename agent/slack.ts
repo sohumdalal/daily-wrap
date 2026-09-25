@@ -68,6 +68,24 @@ function permalink(workspace: string, channelId: string, messageTs: string): str
 }
 
 /**
+ * Post one message back to Slack.
+ *
+ * The adapter buffers DELTA chunks and flushes the buffer on END, and END
+ * ignores its own content field: a lone END with text in it finds an empty
+ * buffer and is dropped with only a debug line. So the text goes in a DELTA
+ * and END is what sends it. START first, so a stale buffer cannot prepend.
+ */
+function say(
+  conversation: ReturnType<MessagingClient['createConversationStream']>,
+  conversationId: string,
+  text: string,
+): void {
+  conversation.sendContentChunk(conversationId, { type: 'START', content: '' });
+  conversation.sendContentChunk(conversationId, { type: 'DELTA', content: text });
+  conversation.sendContentChunk(conversationId, { type: 'END', content: '' });
+}
+
+/**
  * Connect to the sidecar and capture reactions. Returns without throwing when
  * there is no sidecar to talk to.
  */
@@ -157,21 +175,28 @@ export async function startSlackIngestion(): Promise<void> {
         `[slack] captured :${saved.emoji}: from ${saved.channelName || saved.channelId}`,
       );
 
-      // Acknowledge in the thread, so reacting has a visible result.
+      // Reacting has to have a visible result, or a capture is
+      // indistinguishable from a channel the app was never invited to. The
+      // count says the record actually grew.
       if (message.conversationId) {
-        conversation.sendContentChunk(message.conversationId, {
-          type: 'END',
-          content: `Saved to your Daily Wrap feedback for ${saved.day}.`,
-        });
+        const todays = await store.slackFeedbackBetween(saved.day, saved.day);
+        const nth = todays.length === 1 ? 'first one today' : `${todays.length} today`;
+        say(
+          conversation,
+          message.conversationId,
+          `Feedback recorded for ${saved.day} (${nth}). ` +
+            `It will be part of that day's wrap.`,
+        );
       }
     } catch (err) {
       console.error('[slack] could not store the reaction:', err);
       // Silence would look identical to a successful capture.
       if (message.conversationId) {
-        conversation.sendContentChunk(message.conversationId, {
-          type: 'END',
-          content: 'Could not record that one. It is still in Slack, so react again later.',
-        });
+        say(
+          conversation,
+          message.conversationId,
+          'Could not record that one. It is still in Slack, so react again later.',
+        );
       }
     }
   }
