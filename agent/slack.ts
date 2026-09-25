@@ -144,6 +144,13 @@ export async function startSlackIngestion(): Promise<void> {
       }
     } catch (err) {
       console.error('[slack] could not store the reaction:', err);
+      // Silence would look identical to a successful capture.
+      if (message.conversationId) {
+        conversation.sendContentChunk(message.conversationId, {
+          type: 'END',
+          content: 'Could not record that one. It is still in Slack, so react again later.',
+        });
+      }
     }
   }
 }

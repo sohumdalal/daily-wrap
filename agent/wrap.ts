@@ -489,14 +489,24 @@ export function hasActivity(claude: ClaudeDay | null, github: GitHubDay | null):
   );
 }
 
-export async function writeDayWrap(opts: {
+export type DayPromptInput = {
   day: string;
   claude: ClaudeDay | null;
   github: GitHubDay | null;
   reflection: Reflection | null;
-  /** Recorded against the version this produces. */
-  reason?: WrapReason;
-}): Promise<Wrap> {
+};
+
+/**
+ * Assemble the day's prompt without calling a model or writing anything.
+ *
+ * Split out from writeDayWrap so that inspecting what the model will see is a
+ * pure read. When the two were one function, checking a prompt meant stubbing
+ * the model and letting the wrap save anyway, which overwrote a real day with
+ * placeholder text.
+ */
+export async function buildDayPrompt(
+  opts: DayPromptInput,
+): Promise<{ system: string; user: string }> {
   // Oldest first, and excluding today — a day is context for the days after it.
   const [priors, feedback, goals, versions, slack] = await Promise.all([
     store.getWrapsBetween('day', addDays(opts.day, -PRIOR_DAYS), addDays(opts.day, -1)),
@@ -506,17 +516,28 @@ export async function writeDayWrap(opts: {
     store.slackFeedbackBetween(opts.day, opts.day),
   ]);
 
-  let user =
+  const user =
     describeDay(opts.day, opts.claude, opts.github) +
     describePriorDays(priors) +
+    describeSlack(slack) +
+    describeReflection(opts.reflection) +
     describePriorVersions(versions.slice(0, PRIOR_VERSIONS));
-  user += describeSlack(slack) + describeReflection(opts.reflection);
 
-  const { value, model } = await generate({
+  return {
     system: DAY_SYSTEM + describeGoals(goals) + describeFeedback(feedback),
     user,
-    schema: WrapSchema,
-  });
+  };
+}
+
+export async function writeDayWrap(
+  opts: DayPromptInput & {
+    /** Recorded against the version this produces. */
+    reason?: WrapReason;
+  },
+): Promise<Wrap> {
+  const { system, user } = await buildDayPrompt(opts);
+
+  const { value, model } = await generate({ system, user, schema: WrapSchema });
 
   return store.saveWrap(
     { period: 'day', key: opts.day, model, ...value },
