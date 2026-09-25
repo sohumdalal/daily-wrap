@@ -225,6 +225,14 @@ const MIGRATIONS: Array<{ id: string; sql: string }> = [
         ON slack_feedback(user_id, day DESC, created_at DESC);
     `,
   },
+  {
+    id: '0008_slack_author',
+    sql: `
+      ALTER TABLE slack_feedback
+        ADD COLUMN IF NOT EXISTS author_id   TEXT NOT NULL DEFAULT '',
+        ADD COLUMN IF NOT EXISTS author_name TEXT NOT NULL DEFAULT '';
+    `,
+  },
 ];
 
 export async function runMigrations(): Promise<void> {

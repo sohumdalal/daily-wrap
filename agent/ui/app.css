@@ -684,6 +684,10 @@ body {
   color: var(--semantic-info);
 }
 
+.feedback-meta .who {
+  color: var(--ink);
+}
+
 .feedback-text {
   margin: 0;
   font-size: 16px;

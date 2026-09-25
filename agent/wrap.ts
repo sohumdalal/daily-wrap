@@ -357,10 +357,11 @@ ${reflection.body}`);
  */
 function describeSlack(feedback: SlackFeedback[]): string {
   if (!feedback.length) return '';
-  const lines = feedback.map(
-    (f) =>
-      `  - in #${f.channelName || f.channelId}: ${f.text.replace(/\s+/g, ' ').slice(0, 600)}`,
-  );
+  const lines = feedback.map((f) => {
+    const who = f.authorName || f.authorId;
+    const where = `#${f.channelName || f.channelId}`;
+    return `  - in ${where}${who ? `, from ${who}` : ''}: ${f.text.replace(/\s+/g, ' ').slice(0, 600)}`;
+  });
   return `
 
 FEEDBACK THEY MARKED IN SLACK. They reacted to these deliberately, so each one

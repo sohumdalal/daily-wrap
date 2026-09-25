@@ -189,6 +189,9 @@ export type SlackFeedback = {
   messageTs: string;
   threadRoot: string;
   reactorId: string;
+  /** Who wrote it. Empty until the platform forwards it. */
+  authorId: string;
+  authorName: string;
   emoji: string;
   text: string;
   permalink: string;

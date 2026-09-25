@@ -156,6 +156,11 @@ export async function startSlackIngestion(): Promise<void> {
       return;
     }
 
+    // The adapter forwards these once astropods/messaging#91 ships. Until it
+    // does they are absent, and every one of them is decoration: a capture
+    // without a name is still the message.
+    const extra = ctx.platformData ?? {};
+
     try {
       const saved = await store.addSlackFeedback({
         // The day it was noticed, not the day the message was written: this is
@@ -166,13 +171,16 @@ export async function startSlackIngestion(): Promise<void> {
         messageTs: ctx.messageId ?? '',
         threadRoot: ctx.threadRootId ?? '',
         reactorId: message.user?.id ?? parsed.reactor,
-        emoji: parsed.emoji,
+        authorId: extra.author_id ?? '',
+        authorName: extra.author_name ?? '',
+        emoji: extra.reaction || parsed.emoji,
         text: parsed.text,
         permalink: permalink(ctx.workspaceId ?? '', ctx.channelId ?? '', ctx.messageId ?? ''),
       });
 
       console.log(
-        `[slack] captured :${saved.emoji}: from ${saved.channelName || saved.channelId}`,
+        `[slack] captured :${saved.emoji}: from ${saved.channelName || saved.channelId}` +
+          (saved.authorName || saved.authorId ? ` by ${saved.authorName || saved.authorId}` : ''),
       );
 
       // Reacting has to have a visible result, or a capture is

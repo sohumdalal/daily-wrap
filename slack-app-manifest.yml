@@ -11,6 +11,12 @@
 #   chat:write         post the "Saved to your Daily Wrap feedback" reply
 #   im:history         so a DM to the bot is not silently dropped
 #   reactions:write    lets the adapter acknowledge with its own reaction
+#   channels:read      resolve C0BE3PABB32 to #its-real-name
+#   groups:read        the same, in private channels
+#   users:read         resolve the message author's U… id to a display name
+#
+# Without the three read scopes a capture still works, but it is stored with
+# raw Slack ids, because the adapter leaves a name empty rather than guess.
 #
 # reaction_added is the event that matters. Slack only delivers it for channels
 # the app is a member of, so invite the app to the channels where feedback
@@ -34,6 +40,9 @@ oauth_config:
       - chat:write
       - im:history
       - app_mentions:read
+      - channels:read
+      - groups:read
+      - users:read
 settings:
   event_subscriptions:
     bot_events:

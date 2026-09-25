@@ -435,6 +435,8 @@ type SlackFeedbackRow = {
   message_ts: string;
   thread_root: string;
   reactor_id: string;
+  author_id: string;
+  author_name: string;
   emoji: string;
   text: string;
   permalink: string;
@@ -450,6 +452,8 @@ function toSlackFeedback(row: SlackFeedbackRow): SlackFeedback {
     messageTs: row.message_ts,
     threadRoot: row.thread_root,
     reactorId: row.reactor_id,
+    authorId: row.author_id,
+    authorName: row.author_name,
     emoji: row.emoji,
     text: row.text,
     permalink: row.permalink,
@@ -458,8 +462,8 @@ function toSlackFeedback(row: SlackFeedbackRow): SlackFeedback {
 }
 
 const SLACK_COLUMNS = `id, day, channel_id, channel_name, message_ts,
-                       thread_root, reactor_id, emoji, text, permalink,
-                       created_at`;
+                       thread_root, reactor_id, author_id, author_name,
+                       emoji, text, permalink, created_at`;
 
 /**
  * Store one capture. Reacting twice to the same message is the same capture,
@@ -472,6 +476,8 @@ export async function addSlackFeedback(input: {
   messageTs: string;
   threadRoot: string;
   reactorId: string;
+  authorId: string;
+  authorName: string;
   emoji: string;
   text: string;
   permalink: string;
@@ -480,14 +486,21 @@ export async function addSlackFeedback(input: {
   const rows = await sql<SlackFeedbackRow[]>`
     INSERT INTO slack_feedback
            (user_id, day, channel_id, channel_name, message_ts, thread_root,
-            reactor_id, emoji, text, permalink)
+            reactor_id, author_id, author_name, emoji, text, permalink)
     VALUES (${USER}, ${input.day}, ${input.channelId}, ${input.channelName},
             ${input.messageTs}, ${input.threadRoot}, ${input.reactorId},
+            ${input.authorId}, ${input.authorName},
             ${input.emoji}, ${input.text}, ${input.permalink})
     ON CONFLICT (user_id, channel_id, message_ts, emoji) DO UPDATE
        SET text = EXCLUDED.text,
-           channel_name = EXCLUDED.channel_name,
-           permalink = EXCLUDED.permalink
+           channel_name = coalesce(nullif(EXCLUDED.channel_name, ''),
+                                   slack_feedback.channel_name),
+           author_id   = coalesce(nullif(EXCLUDED.author_id, ''),
+                                  slack_feedback.author_id),
+           author_name = coalesce(nullif(EXCLUDED.author_name, ''),
+                                  slack_feedback.author_name),
+           permalink   = coalesce(nullif(EXCLUDED.permalink, ''),
+                                  slack_feedback.permalink)
     RETURNING ${sql.unsafe(SLACK_COLUMNS)}
   `;
   return toSlackFeedback(rows[0]!);

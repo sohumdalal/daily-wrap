@@ -560,6 +560,13 @@ async function loadSlackFeedback() {
         const when = document.createElement('span');
         when.textContent = f.day;
         meta.append(where, when);
+        const who = f.authorName || f.authorId;
+        if (who) {
+          const author = document.createElement('span');
+          author.className = 'who';
+          author.textContent = who;
+          meta.append(author);
+        }
         if (f.permalink) {
           const link = document.createElement('a');
           link.href = f.permalink;
