@@ -1046,6 +1046,83 @@ body {
   padding-bottom: 0;
 }
 
+/* ── The three, inside the chat ─────────────────────────────────────────── */
+
+/* Sits between the log and the composer, so submitting is the last thing in
+   the conversation rather than a panel somewhere else on the page. */
+.three {
+  border-top: 1px solid var(--hairline);
+  padding: var(--sm);
+  background: var(--canvas);
+}
+
+.three-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--xs);
+  padding-bottom: var(--xs);
+}
+
+.three-row {
+  display: block;
+  padding-bottom: var(--xs);
+}
+
+.three-row .label {
+  display: block;
+  padding-bottom: var(--xxxs);
+}
+
+.three-row textarea {
+  display: block;
+  width: 100%;
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  padding: var(--xxs) var(--xs);
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.three-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sm);
+  padding-top: var(--xxs);
+}
+
+.chat-draft {
+  appearance: none;
+  flex: 0 0 auto;
+  height: 40px;
+  padding: 0 var(--xs);
+  background: none;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-none);
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.chat-draft:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--muted);
+}
+
+.chat-draft:disabled {
+  color: var(--hairline);
+  cursor: default;
+}
+
 /* ── Reflection chat ───────────────────────────────────────────────────── */
 
 /* A window, bounded by hairlines rather than a lifted panel: the log scrolls

@@ -86,12 +86,14 @@ const el = {
   reflectIntro: $('reflect-intro'),
   reflectSend: $('reflect-send'),
   reflectHint: $('reflect-hint'),
-  takeaways: $('takeaways'),
+  three: $('three'),
+  threeStatus: $('three-status'),
+  threeSave: $('three-save'),
+  chatDraft: $('chat-draft'),
   takeGood: $('take-good'),
   takeBad: $('take-bad'),
   takeImprove: $('take-improve'),
   energy: $('energy'),
-  saved: $('saved'),
   wrap: $('wrap'),
   collect: $('collect'),
   note: $('note'),
@@ -411,7 +413,13 @@ function renderThread(view) {
  */
 function renderTakeaways(view) {
   const t = view.reflection?.takeaways ?? { good: '', bad: '', improve: '' };
-  el.takeaways.hidden = false;
+  const any = Boolean(t.good || t.bad || t.improve);
+  // Shown once there is a draft or something you already saved, so the chat
+  // starts as a conversation rather than a form with three empty boxes.
+  el.three.hidden = !any;
+  el.threeStatus.textContent = view.reflection?.updatedAt
+    ? `Saved ${clock(view.reflection.updatedAt)}`
+    : '';
   for (const [field, node] of [
     ['good', el.takeGood],
     ['bad', el.takeBad],
@@ -420,24 +428,18 @@ function renderTakeaways(view) {
     // Never overwrite what is being typed.
     if (document.activeElement !== node) node.value = t[field] ?? '';
   }
-}
-
-function renderReflection(view) {
-  renderThread(view);
-  renderTakeaways(view);
-
   for (const button of el.energy.querySelectorAll('button')) {
     button.setAttribute(
       'aria-pressed',
       String(Number(button.dataset.energy) === view.reflection?.energy),
     );
   }
-  el.saved.textContent = view.reflection?.updatedAt
-    ? `Saved ${new Date(view.reflection.updatedAt).toLocaleTimeString([], {
-        hour: 'numeric',
-        minute: '2-digit',
-      })}`
-    : '';
+}
+
+function renderReflection(view) {
+  renderThread(view);
+  renderTakeaways(view);
+  el.chatDraft.disabled = (view.turns ?? []).length === 0 || state.reflecting;
 }
 
 function render() {
@@ -657,19 +659,13 @@ async function patchReflection(patch) {
   }
 }
 
-let takeawayTimer;
-function queueTakeaways() {
-  clearTimeout(takeawayTimer);
-  el.saved.textContent = 'Saving…';
-  takeawayTimer = setTimeout(
-    () =>
-      patchReflection({
-        good: el.takeGood.value,
-        bad: el.takeBad.value,
-        improve: el.takeImprove.value,
-      }),
-    700,
-  );
+async function saveThree() {
+  el.threeStatus.textContent = 'Saving…';
+  await patchReflection({
+    good: el.takeGood.value.trim(),
+    bad: el.takeBad.value.trim(),
+    improve: el.takeImprove.value.trim(),
+  });
 }
 
 /**
@@ -1136,17 +1132,14 @@ el.reflection.addEventListener('input', () => {
   el.reflection.style.height = `${el.reflection.scrollHeight}px`;
 });
 
-for (const node of [el.takeGood, el.takeBad, el.takeImprove]) {
-  node.addEventListener('input', queueTakeaways);
-  node.addEventListener('blur', () => {
-    clearTimeout(takeawayTimer);
-    patchReflection({
-      good: el.takeGood.value,
-      bad: el.takeBad.value,
-      improve: el.takeImprove.value,
-    });
-  });
-}
+el.threeSave.addEventListener('click', saveThree);
+
+// Asking for a draft is a turn like any other, with an explicit instruction.
+el.chatDraft.addEventListener('click', () => {
+  if (state.reflecting) return;
+  el.reflection.value = 'Draft my three from what I have told you.';
+  sendReflection();
+});
 
 el.energy.addEventListener('click', (e) => {
   const value = e.target.dataset?.energy;

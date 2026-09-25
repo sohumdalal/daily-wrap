@@ -223,36 +223,7 @@
               <div class="covered" id="covered"></div>
             </section>
 
-      <section class="section">
-  <div class="takeaways" id="takeaways">
-                  <div class="section-head">
-              <span class="label">Your three</span>
-              <span class="caption" id="saved"></span>
-            </div>
-                  <label class="takeaway">
-                    <span class="label">Went well</span>
-                    <input type="text" id="take-good" maxlength="240" />
-                  </label>
-                  <label class="takeaway">
-                    <span class="label">Went badly</span>
-                    <input type="text" id="take-bad" maxlength="240" />
-                  </label>
-                  <label class="takeaway">
-                    <span class="label">To improve</span>
-                    <input type="text" id="take-improve" maxlength="240" />
-                  </label>
-                </div>
-  <div class="energy">
-                  <span class="label">Energy</span>
-                  <div class="energy-scale" id="energy">
-                    <button data-energy="1" aria-pressed="false">1</button>
-                    <button data-energy="2" aria-pressed="false">2</button>
-                    <button data-energy="3" aria-pressed="false">3</button>
-                    <button data-energy="4" aria-pressed="false">4</button>
-                    <button data-energy="5" aria-pressed="false">5</button>
-                  </div>
-                </div>
-      </section>
+
 
       <div class="actions">
         <button class="btn" id="wrap">Wrap the day</button>
@@ -275,6 +246,38 @@
             Reading your day and your recent ones&#8230;
           </p>
 
+          <div class="three" id="three" hidden>
+            <div class="three-head">
+              <span class="label">Your three</span>
+              <span class="caption" id="three-status"></span>
+            </div>
+            <label class="three-row">
+              <span class="label">Went well</span>
+              <textarea id="take-good" rows="2" maxlength="400"></textarea>
+            </label>
+            <label class="three-row">
+              <span class="label">Went badly</span>
+              <textarea id="take-bad" rows="2" maxlength="400"></textarea>
+            </label>
+            <label class="three-row">
+              <span class="label">To improve</span>
+              <textarea id="take-improve" rows="2" maxlength="400"></textarea>
+            </label>
+            <div class="three-actions">
+              <button class="btn" id="three-save">Save the three</button>
+              <div class="energy">
+                <span class="label">Energy</span>
+                <div class="energy-scale" id="energy">
+                  <button data-energy="1" aria-pressed="false">1</button>
+                  <button data-energy="2" aria-pressed="false">2</button>
+                  <button data-energy="3" aria-pressed="false">3</button>
+                  <button data-energy="4" aria-pressed="false">4</button>
+                  <button data-energy="5" aria-pressed="false">5</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="chat-composer">
             <textarea
               id="reflection"
@@ -282,6 +285,9 @@
               placeholder="Reply"
               spellcheck="true"
             ></textarea>
+            <button class="chat-draft" id="chat-draft" type="button">
+              Draft my three
+            </button>
             <button class="chat-send" id="reflect-send" type="button" aria-label="Send">
               &#8593;
             </button>
