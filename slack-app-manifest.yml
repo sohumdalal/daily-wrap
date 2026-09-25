@@ -1,0 +1,46 @@
+# Slack app manifest for Daily Wrap.
+#
+# Create the app at api.slack.com/apps with "From a manifest" and paste this.
+# Socket Mode means no public request URL: the adapter holds a WebSocket open,
+# so nothing needs to be reachable from the internet.
+#
+# Scope notes, since each one is load-bearing:
+#   reactions:read     receive the :brain: at all
+#   channels:history   read the message that was reacted to, in public channels
+#   groups:history     the same, in private channels
+#   chat:write         post the "Saved to your Daily Wrap feedback" reply
+#   im:history         so a DM to the bot is not silently dropped
+#   reactions:write    lets the adapter acknowledge with its own reaction
+#
+# reaction_added is the event that matters. Slack only delivers it for channels
+# the app is a member of, so invite the app to the channels where feedback
+# actually happens: /invite @Daily Wrap
+display_information:
+  name: Daily Wrap
+  description: React :brain: to a message to keep it as feedback in your daily wrap.
+  background_color: "#181818"
+features:
+  bot_user:
+    display_name: Daily Wrap
+    always_online: false
+oauth_config:
+  scopes:
+    bot:
+      - reactions:read
+      - reactions:write
+      - channels:history
+      - groups:history
+      - chat:write
+      - im:history
+      - app_mentions:read
+settings:
+  event_subscriptions:
+    bot_events:
+      - reaction_added
+      - app_mention
+      - message.im
+  interactivity:
+    is_enabled: true
+  org_deploy_enabled: false
+  socket_mode_enabled: true
+  token_rotation_enabled: false

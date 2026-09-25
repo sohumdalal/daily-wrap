@@ -231,6 +231,15 @@ judgement that this mattered.
 It earns a tab of its own, because feedback accumulates across days and is
 worth reading as a list rather than only inside the day it landed on.
 
+Setup is a manifest, not a click-through: `slack-app-manifest.yml` at the repo
+root carries the scopes and the `reaction_added` subscription. Socket Mode means
+no public request URL. Astropods asks for `SLACK_BOT_TOKEN` (`xoxb-`) and
+`SLACK_APP_TOKEN` (`xapp-`, scope `connections:write`) when the slack adapter is
+enabled at deploy.
+
+Slack only delivers `reaction_added` for channels the app belongs to, so the app
+has to be invited to the channels where feedback happens.
+
 Two things are unverified, because both need a real workspace: whether
 Postman's Slack permits the app install, and whether the author of the reacted
 message reaches us. The adapter forwards the reactor and the text but not the
