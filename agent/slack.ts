@@ -90,7 +90,20 @@ export async function startSlackIngestion(): Promise<void> {
   }
 
   const conversation = client.createConversationStream();
-  console.log(`[slack] listening for :brain: reactions via ${SIDECAR}`);
+
+  // Register before anything can be delivered.
+  //
+  // The sidecar blocks on stream.Recv() waiting for the agent's first message
+  // and only then adds the stream to its registry. An agent that opens the
+  // stream and merely listens is never registered, so every reaction fails
+  // with "no active agent stream available". Sending the config is the
+  // handshake: the server has an explicit branch for it.
+  conversation.sendAgentConfig({
+    systemPrompt: 'Daily Wrap captures Slack messages marked with a reaction.',
+    tools: [],
+  });
+
+  console.log(`[slack] registered with the sidecar, listening for :brain: via ${SIDECAR}`);
 
   // A dropped stream is worth one line, not one per attempt.
   conversation.on('error', (err: Error) =>

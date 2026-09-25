@@ -214,6 +214,12 @@ messaging sidecar is not billed.
 Just the message, not the thread. A thread is a conversation, and capturing all
 of it would bury the line that was worth marking.
 
+The agent must speak first. The sidecar blocks on `stream.Recv()` waiting for
+the agent's opening message and only then registers the stream, so an agent
+that opens a stream and merely listens is never registered and every reaction
+fails with `no active agent stream available`. Sending `AgentConfig` on connect
+is the handshake; the server has an explicit branch for it.
+
 The sidecar only exists when deployed with messaging on, or locally under
 `ast project start`. A gRPC channel connects lazily, so the agent probes the
 port once with TCP before opening a stream: without that, plain `bun run dev`
