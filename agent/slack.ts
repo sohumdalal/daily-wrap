@@ -170,7 +170,10 @@ export async function startSlackIngestion(): Promise<void> {
         channelName: ctx.channelName ?? '',
         messageTs: ctx.messageId ?? '',
         threadRoot: ctx.threadRootId ?? '',
-        reactorId: message.user?.id ?? parsed.reactor,
+        // Not message.user.id: the platform rewrites that to the WorkOS user
+        // id once a Slack account is linked, so keying on it mixes two id
+        // spaces. platformContext.userId is always the raw U….
+        reactorId: ctx.userId || message.user?.id || parsed.reactor,
         authorId: extra.author_id ?? '',
         authorName: extra.author_name ?? '',
         emoji: extra.reaction || parsed.emoji,
