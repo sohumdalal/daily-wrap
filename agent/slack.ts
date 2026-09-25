@@ -106,6 +106,15 @@ export async function startSlackIngestion(): Promise<void> {
 
   async function handleReaction(message: Message): Promise<void> {
     const ctx = message.platformContext ?? ({} as NonNullable<Message['platformContext']>);
+
+    // Log every kind, so "nothing arrived from Slack" is distinguishable from
+    // "something arrived and this agent ignored it". Without this the two look
+    // identical from the outside, which cost an evening.
+    console.log(
+      `[slack] inbound ${ctx.eventKind ?? 'unknown'}` +
+        ` channel=${ctx.channelName || ctx.channelId || '?'}`,
+    );
+
     // Everything else the sidecar forwards is somebody talking to a chat bot,
     // which this agent is not.
     if (ctx.eventKind !== 'EVENT_KIND_REACTION') return;
