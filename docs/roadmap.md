@@ -20,6 +20,7 @@ Status: `done` · `next` · `later` · `open question`
 - [x] Sources tab with search and per-kind filters
 - [x] Nightly wrap via cron, with a catch-up window
 - [x] Shared Postgres so a deployed agent and the laptop see one record
+- [x] Slack capture by `:brain:` reaction, and a Feedback tab (pending install)
 
 ## Next
 
@@ -30,8 +31,12 @@ Status: `done` · `next` · `later` · `open question`
       nothing stores the answer. This is the single highest-value missing field,
       because the record can currently tell you what you said and not whether
       you followed through.
-- [ ] **Slack via `:brain:`.** See `architecture.md`. Ships as a new source plus
-      a Feedback tab.
+- [ ] **Slack install.** The ingestion is built: `actionable_reactions:
+      [brain]`, a listener on the messaging stream, a `slack_feedback` table, a
+      Feedback tab, and captures feeding the day's prompt. What is left is the
+      workspace install, which is the part I cannot test from here. Unknown
+      until then: whether the reacted message's author reaches us, since the
+      adapter forwards the reactor and the text but not the author.
 - [ ] **Surface `headline`.** Generated on every wrap and shown nowhere except a
       rollup's day list.
 - [ ] **A week view worth opening.** The rollup works; nothing shows a day

@@ -4,6 +4,7 @@ import { config, isDev } from './config.ts';
 import { describeTarget, ping } from './db/client.ts';
 import { runMigrations } from './db/migrations.ts';
 import { routes } from './routes.ts';
+import { startSlackIngestion } from './slack.ts';
 
 const app = new Hono();
 
@@ -50,6 +51,9 @@ void (async () => {
       try {
         await runMigrations();
         console.log('[db] connected — migrations applied');
+        // After migrations, since a capture writes to a table. Failures here
+        // are logged inside and never reach this far.
+        void startSlackIngestion();
       } catch (err) {
         console.error('[boot] database initialization failed after connect:', err);
       }

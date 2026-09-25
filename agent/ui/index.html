@@ -32,6 +32,9 @@
           <button role="menuitem" type="button" data-view="goals" id="goals-tab">
             Goals
           </button>
+          <button role="menuitem" type="button" data-view="feedback" id="feedback-tab">
+            Feedback
+          </button>
         </div>
       </div>
       <div class="nav-right">
@@ -73,6 +76,34 @@
         </button>
       </div>
     </nav>
+
+    <main class="shell" id="feedback-view" hidden>
+      <header class="hero">
+        <div class="hero-date">
+          <span class="label">Feedback</span>
+          <div class="tabs" id="feedback-tabs">
+            <button data-source="slack" aria-current="true">Slack</button>
+          </div>
+        </div>
+      </header>
+
+      <p class="take goals-intro">
+        What other people said about you. React <strong>:brain:</strong> to a
+        message in Slack and it lands here, and in that day's wrap.
+      </p>
+
+      <section class="section">
+        <div class="section-head">
+          <span class="label">Marked in Slack</span>
+          <span class="caption" id="slack-count"></span>
+        </div>
+        <div class="feedback-list" id="slack-list"></div>
+        <p class="caption" id="slack-empty" hidden>
+          Nothing marked yet. In any channel the agent can see, react
+          <strong>:brain:</strong> to a message worth keeping.
+        </p>
+      </section>
+    </main>
 
     <main class="shell" id="goals-view" hidden>
       <header class="hero">

@@ -197,6 +197,34 @@ const MIGRATIONS: Array<{ id: string; sql: string }> = [
       ALTER TABLE reflections ADD COLUMN IF NOT EXISTS improve TEXT NOT NULL DEFAULT '';
     `,
   },
+  {
+    // Slack feedback, captured by reacting :brain: to a message. A third
+    // ingestion source, and the first that is marked by hand: reacting is a
+    // judgement that this mattered, which unfiltered channel history is not.
+    //
+    // `day` is the civil date the reaction happened on, so a capture joins the
+    // day it was noticed rather than the day the message was written.
+    id: '0007_slack_feedback',
+    sql: `
+      CREATE TABLE IF NOT EXISTS slack_feedback (
+        id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id     TEXT NOT NULL DEFAULT 'default',
+        day         DATE NOT NULL,
+        channel_id  TEXT NOT NULL,
+        channel_name TEXT NOT NULL DEFAULT '',
+        message_ts  TEXT NOT NULL,
+        thread_root TEXT NOT NULL DEFAULT '',
+        reactor_id  TEXT NOT NULL DEFAULT '',
+        emoji       TEXT NOT NULL DEFAULT 'brain',
+        text        TEXT NOT NULL,
+        permalink   TEXT NOT NULL DEFAULT '',
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE (user_id, channel_id, message_ts, emoji)
+      );
+      CREATE INDEX IF NOT EXISTS slack_feedback_by_day
+        ON slack_feedback(user_id, day DESC, created_at DESC);
+    `,
+  },
 ];
 
 export async function runMigrations(): Promise<void> {

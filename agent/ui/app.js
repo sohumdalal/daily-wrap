@@ -24,6 +24,11 @@ const HORIZON_LABEL = {
 const el = {
   shell: $('shell'),
   goalsView: $('goals-view'),
+  feedbackView: $('feedback-view'),
+  feedbackTab: $('feedback-tab'),
+  slackList: $('slack-list'),
+  slackCount: $('slack-count'),
+  slackEmpty: $('slack-empty'),
   goalsTab: $('goals-tab'),
   brand: $('brand'),
   brandmenu: $('brandmenu'),
@@ -537,6 +542,46 @@ function goalRow(goal) {
   return row;
 }
 
+async function loadSlackFeedback() {
+  try {
+    const { feedback } = await api('/api/feedback/slack');
+    el.slackCount.textContent = feedback.length ? `${feedback.length}` : '';
+    el.slackEmpty.hidden = feedback.length > 0;
+    el.slackList.replaceChildren(
+      ...feedback.map((f) => {
+        const item = document.createElement('div');
+        item.className = 'feedback-item';
+
+        const meta = document.createElement('div');
+        meta.className = 'feedback-meta';
+        const where = document.createElement('span');
+        where.className = 'where';
+        where.textContent = f.channelName ? `#${f.channelName}` : f.channelId;
+        const when = document.createElement('span');
+        when.textContent = f.day;
+        meta.append(where, when);
+        if (f.permalink) {
+          const link = document.createElement('a');
+          link.href = f.permalink;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.textContent = 'Open in Slack';
+          meta.append(link);
+        }
+
+        const text = document.createElement('p');
+        text.className = 'feedback-text';
+        text.textContent = f.text;
+
+        item.append(meta, text);
+        return item;
+      }),
+    );
+  } catch (err) {
+    note(err.message, true);
+  }
+}
+
 async function loadGoals() {
   // Bars only while there is nothing to show; a refresh keeps the current list.
   const blank = el.goalList.childElementCount === 0;
@@ -827,16 +872,20 @@ function applyTab() {
 /** Swap which of the two shells is on screen, and mark the nav. */
 function applyMode() {
   const goals = state.mode === 'goals';
+  const feedback = state.mode === 'feedback';
+  const wrap = !goals && !feedback;
   el.goalsView.hidden = !goals;
-  el.shell.hidden = goals;
+  el.feedbackView.hidden = !feedback;
+  el.shell.hidden = !wrap;
   el.goalsTab.setAttribute('aria-current', String(goals));
-  el.datefield.closest('.datefield-wrap').hidden = goals;
+  el.feedbackTab.setAttribute('aria-current', String(feedback));
+  el.datefield.closest('.datefield-wrap').hidden = !wrap;
   closeCalendar();
   openBrandMenu(false);
   for (const button of el.periods.querySelectorAll('button[data-period]')) {
     button.setAttribute(
       'aria-current',
-      String(!goals && button.dataset.period === state.period),
+      String(wrap && button.dataset.period === state.period),
     );
   }
 }
@@ -849,6 +898,14 @@ function applyHash() {
     applyMode();
     note(null);
     loadGoals();
+    return;
+  }
+
+  if (raw === 'feedback') {
+    state.mode = 'feedback';
+    applyMode();
+    note(null);
+    loadSlackFeedback();
     return;
   }
 
@@ -946,9 +1003,10 @@ el.brand.addEventListener('click', (e) => {
 
 el.brandmenu.addEventListener('click', (e) => {
   e.stopPropagation();
-  if (e.target.dataset?.view === 'goals') {
+  const view = e.target.dataset?.view;
+  if (view) {
     openBrandMenu(false);
-    location.hash = '#goals';
+    location.hash = `#${view}`;
   }
 });
 
@@ -1157,9 +1215,9 @@ const isTyping = (target) =>
     target.isContentEditable);
 
 document.addEventListener('keydown', (e) => {
-  // The goals page is a form, so its fields keep their own keys. Outside them
-  // the jump to today still works, which is where it is most wanted.
-  if (state.mode === 'goals') {
+  // These pages are forms or lists, so their fields keep their own keys.
+  // Outside them the jump to today still works.
+  if (state.mode !== 'wrap') {
     if (isTyping(e.target)) return;
     if (e.key === 'Escape') history.back();
     if (e.key.toLowerCase() === 't' && !e.metaKey && !e.ctrlKey && !e.altKey) {

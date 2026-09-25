@@ -176,6 +176,25 @@ export type Goal = {
   updatedAt: string;
 };
 
+/**
+ * A Slack message you marked as feedback with a reaction. Kept whole: it is
+ * someone else's words, and paraphrasing them would lose the thing that made
+ * it worth keeping.
+ */
+export type SlackFeedback = {
+  id: string;
+  day: string;
+  channelId: string;
+  channelName: string;
+  messageTs: string;
+  threadRoot: string;
+  reactorId: string;
+  emoji: string;
+  text: string;
+  permalink: string;
+  createdAt: string;
+};
+
 /** Why a version of a wrap exists. */
 export type WrapReason = 'wrap' | 'disagree';
 

@@ -18,6 +18,7 @@ import type {
   GitHubDay,
   Goal,
   Reflection,
+  SlackFeedback,
   Wrap,
   WrapReason,
   WrapVersion,
@@ -349,6 +350,25 @@ ${reflection.body}`);
   return out.join('\n');
 }
 
+/**
+ * Slack messages marked with a reaction. Someone else's words about this
+ * person, which nothing else in the record contains: a diff cannot hold
+ * manager feedback or an argument they lost.
+ */
+function describeSlack(feedback: SlackFeedback[]): string {
+  if (!feedback.length) return '';
+  const lines = feedback.map(
+    (f) =>
+      `  - in #${f.channelName || f.channelId}: ${f.text.replace(/\s+/g, ' ').slice(0, 600)}`,
+  );
+  return `
+
+FEEDBACK THEY MARKED IN SLACK. They reacted to these deliberately, so each one
+is something they judged worth keeping. Treat it as being about them, said by
+someone else, and weigh it accordingly:
+${lines.join('\n')}`;
+}
+
 function bullets(label: string, items: string[]): string {
   if (!items.length) return '';
   return `${label}\n${items.map((i) => `  - ${i}`).join('\n')}\n`;
@@ -478,18 +498,19 @@ export async function writeDayWrap(opts: {
   reason?: WrapReason;
 }): Promise<Wrap> {
   // Oldest first, and excluding today — a day is context for the days after it.
-  const [priors, feedback, goals, versions] = await Promise.all([
+  const [priors, feedback, goals, versions, slack] = await Promise.all([
     store.getWrapsBetween('day', addDays(opts.day, -PRIOR_DAYS), addDays(opts.day, -1)),
     store.recentFeedback(),
     store.activeGoals(),
     store.listWrapVersions('day', opts.day),
+    store.slackFeedbackBetween(opts.day, opts.day),
   ]);
 
   let user =
     describeDay(opts.day, opts.claude, opts.github) +
     describePriorDays(priors) +
     describePriorVersions(versions.slice(0, PRIOR_VERSIONS));
-  user += describeReflection(opts.reflection);
+  user += describeSlack(slack) + describeReflection(opts.reflection);
 
   const { value, model } = await generate({
     system: DAY_SYSTEM + describeGoals(goals) + describeFeedback(feedback),
@@ -511,7 +532,7 @@ export async function writeRollup(
   if (period === 'day') throw new Error('use writeDayWrap for a single day');
   const { from, to } = spanOf(period, key);
 
-  const [dayWraps, dayReflections, ownReflection, feedback, goals, versions] =
+  const [dayWraps, dayReflections, ownReflection, feedback, goals, versions, slack] =
     await Promise.all([
       store.getWrapsBetween('day', from, to),
       store.getReflectionsBetween('day', from, to),
@@ -519,6 +540,7 @@ export async function writeRollup(
       store.recentFeedback(),
       store.activeGoals(),
       store.listWrapVersions(period, key),
+      store.slackFeedbackBetween(from, to),
     ]);
 
   if (!dayWraps.length) {
@@ -555,7 +577,7 @@ export async function writeRollup(
 
   user += describeReflection(ownReflection);
 
-  user += describePriorVersions(versions.slice(0, PRIOR_VERSIONS));
+  user += describeSlack(slack) + describePriorVersions(versions.slice(0, PRIOR_VERSIONS));
 
   const { value, model } = await generate({
     system: ROLLUP_SYSTEM + describeGoals(goals) + describeFeedback(feedback),

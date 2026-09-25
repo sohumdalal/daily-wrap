@@ -144,6 +144,7 @@ reflections       (period, key, user_id)      body, energy, good, bad, improve
 reflection_turns  append-only                 the conversation
 goals             id                          career/craft/impact/personal/intrinsic
 feedback          append-only                 your corrections, binding on every later wrap
+slack_feedback    (channel, ts, emoji)        messages you marked with a reaction
 ```
 
 `period` is `day` / `week` / `month` / `year` and `key` is `2026-09-21` /
@@ -182,7 +183,7 @@ user must carry the project ref: `postgres.<ref>`.
 
 ## Planned sources
 
-### Slack, by emoji
+### Slack, by emoji (built)
 
 Astropods already ships the mechanism. `actionable_reactions` in
 `astropods.yml` tells the platform which emoji to forward to the agent, and the
@@ -202,9 +203,24 @@ dev:
         actionable_reactions: [brain]
 ```
 
-React `:brain:` on a message and the agent fetches that message, and its thread
-if it has one, and stores it as feedback against the day it was reacted to. The
+React `:brain:` on a message and it is stored as feedback against the day you
+reacted. The adapter fetches the message text itself before forwarding, so the
+agent needs no Slack token and no Slack app of its own: it reads
+`AgentResponse.incomingMessage` off the `ProcessConversation` stream, keeps the
+events whose `eventKind` is `EVENT_KIND_REACTION`, and strips the
+`[reaction :brain: added by <@U…> on message]` header the adapter prepends. The
 messaging sidecar is not billed.
+
+Just the message, not the thread. A thread is a conversation, and capturing all
+of it would bury the line that was worth marking.
+
+The sidecar only exists when deployed with messaging on, or locally under
+`ast project start`. A gRPC channel connects lazily, so the agent probes the
+port once with TCP before opening a stream: without that, plain `bun run dev`
+reconnects forever against nothing and buries the log.
+
+Captures reach the day's prompt as somebody else's words about this person,
+which nothing else in the record holds.
 
 The value is specific: manager feedback, a design debate you lost, a decision
 someone talked you out of. None of it appears in a diff, and all of it belongs
@@ -215,9 +231,10 @@ judgement that this mattered.
 It earns a tab of its own, because feedback accumulates across days and is
 worth reading as a list rather than only inside the day it landed on.
 
-Open questions: whether Postman's workspace permits the app install, and
-whether `reaction_added` on a *non-bot* message reaches the agent, since the
-adapter spec lists that event as not currently handled.
+Two things are unverified, because both need a real workspace: whether
+Postman's Slack permits the app install, and whether the author of the reacted
+message reaches us. The adapter forwards the reactor and the text but not the
+author, so a capture currently records what was said and not who said it.
 
 ### Workday
 

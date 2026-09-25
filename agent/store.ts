@@ -12,6 +12,7 @@ import type {
   Goal,
   Reflection,
   ReflectionTurn,
+  SlackFeedback,
   Wrap,
   WrapReason,
   WrapVersion,
@@ -424,6 +425,97 @@ export async function addTurn(
       createdAt: r.created_at.toISOString(),
     }));
   });
+}
+
+type SlackFeedbackRow = {
+  id: string;
+  day: Date;
+  channel_id: string;
+  channel_name: string;
+  message_ts: string;
+  thread_root: string;
+  reactor_id: string;
+  emoji: string;
+  text: string;
+  permalink: string;
+  created_at: Date;
+};
+
+function toSlackFeedback(row: SlackFeedbackRow): SlackFeedback {
+  return {
+    id: row.id,
+    day: row.day.toISOString().slice(0, 10),
+    channelId: row.channel_id,
+    channelName: row.channel_name,
+    messageTs: row.message_ts,
+    threadRoot: row.thread_root,
+    reactorId: row.reactor_id,
+    emoji: row.emoji,
+    text: row.text,
+    permalink: row.permalink,
+    createdAt: row.created_at.toISOString(),
+  };
+}
+
+const SLACK_COLUMNS = `id, day, channel_id, channel_name, message_ts,
+                       thread_root, reactor_id, emoji, text, permalink,
+                       created_at`;
+
+/**
+ * Store one capture. Reacting twice to the same message is the same capture,
+ * so the text is refreshed rather than duplicated.
+ */
+export async function addSlackFeedback(input: {
+  day: string;
+  channelId: string;
+  channelName: string;
+  messageTs: string;
+  threadRoot: string;
+  reactorId: string;
+  emoji: string;
+  text: string;
+  permalink: string;
+}): Promise<SlackFeedback> {
+  const sql = db();
+  const rows = await sql<SlackFeedbackRow[]>`
+    INSERT INTO slack_feedback
+           (user_id, day, channel_id, channel_name, message_ts, thread_root,
+            reactor_id, emoji, text, permalink)
+    VALUES (${USER}, ${input.day}, ${input.channelId}, ${input.channelName},
+            ${input.messageTs}, ${input.threadRoot}, ${input.reactorId},
+            ${input.emoji}, ${input.text}, ${input.permalink})
+    ON CONFLICT (user_id, channel_id, message_ts, emoji) DO UPDATE
+       SET text = EXCLUDED.text,
+           channel_name = EXCLUDED.channel_name,
+           permalink = EXCLUDED.permalink
+    RETURNING ${sql.unsafe(SLACK_COLUMNS)}
+  `;
+  return toSlackFeedback(rows[0]!);
+}
+
+export async function listSlackFeedback(limit = 200): Promise<SlackFeedback[]> {
+  const rows = await db()<SlackFeedbackRow[]>`
+    SELECT ${db().unsafe(SLACK_COLUMNS)}
+      FROM slack_feedback
+     WHERE user_id = ${USER}
+     ORDER BY day DESC, created_at DESC
+     LIMIT ${limit}
+  `;
+  return rows.map(toSlackFeedback);
+}
+
+/** Captures inside a span, for the day's prompt and for rollups. */
+export async function slackFeedbackBetween(
+  from: string,
+  to: string,
+): Promise<SlackFeedback[]> {
+  const rows = await db()<SlackFeedbackRow[]>`
+    SELECT ${db().unsafe(SLACK_COLUMNS)}
+      FROM slack_feedback
+     WHERE user_id = ${USER} AND day BETWEEN ${from} AND ${to}
+     ORDER BY day, created_at
+  `;
+  return rows.map(toSlackFeedback);
 }
 
 type GoalRow = {

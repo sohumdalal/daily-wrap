@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "private": true,
-  "description": "Daily Wrap \u2014 reads your day out of Claude Code and GitHub, writes it back as five bullets, and keeps the reflection beside it.",
+  "description": "Daily Wrap — reads your day out of Claude Code and GitHub, writes it back as five bullets, and keeps the reflection beside it.",
   "scripts": {
     "dev": "bun --watch scripts/dev.ts",
     "start": "bun agent/index.ts",
@@ -15,6 +15,7 @@
   "main": "./agent/index.ts",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
+    "@astropods/messaging": "^0.2.0",
     "@octokit/rest": "^21.0.2",
     "hono": "^4.7.0",
     "postgres": "^3.4.5",

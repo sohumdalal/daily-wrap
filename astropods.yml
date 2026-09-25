@@ -10,7 +10,9 @@ agent:
   # `interfaces` at all flips messaging to false, so it is spelled out here.
   interfaces:
     frontend: true
-    messaging: false
+    # The Slack adapter rides on the messaging sidecar, which is not billed.
+    # It is what forwards a :brain: reaction to the agent.
+    messaging: true
   healthcheck:
     path: /healthz
   inputs:
@@ -59,4 +61,10 @@ dev:
   interfaces:
     frontend:
       port: 3002
+    messaging:
+      adapters: [slack]
+      slack:
+        # Only reactions listed here are forwarded; an empty list drops them
+        # all. The adapter fetches the reacted message's text before sending.
+        actionable_reactions: [brain]
   command: bun --watch run start

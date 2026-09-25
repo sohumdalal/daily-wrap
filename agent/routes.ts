@@ -103,6 +103,7 @@ async function view(period: Period, key: string) {
     reflection,
     feedback: await store.getFeedback(period, key),
     turns: await store.getTurns(period, key),
+    slack: await store.slackFeedbackBetween(span.from, span.to),
     versions: await store.countWrapVersions(period, key),
   };
 
@@ -388,6 +389,10 @@ routes.get('/api/versions/:period/:key', async (c) => {
   if (!t) return c.json({ error: 'bad period or key' }, 400);
   return c.json({ versions: await store.listWrapVersions(t.period, t.key) });
 });
+
+routes.get('/api/feedback/slack', async (c) =>
+  c.json({ feedback: await store.listSlackFeedback() }),
+);
 
 routes.get('/api/index/:period', async (c) => {
   const period = c.req.param('period');
