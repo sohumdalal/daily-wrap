@@ -233,6 +233,19 @@ const MIGRATIONS: Array<{ id: string; sql: string }> = [
         ADD COLUMN IF NOT EXISTS author_name TEXT NOT NULL DEFAULT '';
     `,
   },
+  {
+    // One reaction per person, not one per message. The old key left out the
+    // reactor, so a second person reacting upserted onto the first person's
+    // row and their capture was lost with nothing logged.
+    id: '0009_slack_one_row_per_reactor',
+    sql: `
+      ALTER TABLE slack_feedback
+        DROP CONSTRAINT IF EXISTS slack_feedback_user_id_channel_id_message_ts_emoji_key;
+      ALTER TABLE slack_feedback
+        ADD CONSTRAINT slack_feedback_one_per_reactor
+        UNIQUE (user_id, channel_id, message_ts, emoji, reactor_id);
+    `,
+  },
 ];
 
 export async function runMigrations(): Promise<void> {

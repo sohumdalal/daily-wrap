@@ -467,7 +467,9 @@ const SLACK_COLUMNS = `id, day, channel_id, channel_name, message_ts,
 
 /**
  * Store one capture. Reacting twice to the same message is the same capture,
- * so the text is refreshed rather than duplicated.
+ * so the text is refreshed rather than duplicated. Two *people* reacting are
+ * two captures: the reactor is part of the key, or the second one overwrites
+ * the first.
  */
 export async function addSlackFeedback(input: {
   day: string;
@@ -491,7 +493,7 @@ export async function addSlackFeedback(input: {
             ${input.messageTs}, ${input.threadRoot}, ${input.reactorId},
             ${input.authorId}, ${input.authorName},
             ${input.emoji}, ${input.text}, ${input.permalink})
-    ON CONFLICT (user_id, channel_id, message_ts, emoji) DO UPDATE
+    ON CONFLICT (user_id, channel_id, message_ts, emoji, reactor_id) DO UPDATE
        SET text = EXCLUDED.text,
            channel_name = coalesce(nullif(EXCLUDED.channel_name, ''),
                                    slack_feedback.channel_name),
