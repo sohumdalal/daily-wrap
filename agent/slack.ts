@@ -156,9 +156,9 @@ export async function startSlackIngestion(): Promise<void> {
       return;
     }
 
-    // The adapter forwards these once astropods/messaging#91 ships. Until it
-    // does they are absent, and every one of them is decoration: a capture
-    // without a name is still the message.
+    // Who wrote it. Absent until astropods/messaging#91 ships, and absent
+    // afterwards on a message Slack gives no author for, so a capture has to
+    // read fine unattributed.
     const extra = ctx.platformData ?? {};
 
     try {
@@ -176,7 +176,7 @@ export async function startSlackIngestion(): Promise<void> {
         reactorId: ctx.userId || message.user?.id || parsed.reactor,
         authorId: extra.author_id ?? '',
         authorName: extra.author_name ?? '',
-        emoji: extra.reaction || parsed.emoji,
+        emoji: parsed.emoji,
         text: parsed.text,
         permalink: permalink(ctx.workspaceId ?? '', ctx.channelId ?? '', ctx.messageId ?? ''),
       });
