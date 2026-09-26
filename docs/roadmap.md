@@ -27,7 +27,11 @@ Status: `done` · `next` · `later` · `open question`
 - [ ] **Release readiness.** Turn this into a blueprint anyone can deploy with
       their own credentials. Plan and open questions in
       [plans/release-readiness.md](../plans/release-readiness.md).
-
+- [ ] **Feature impact.** The first outcome input: mark a release in New Relic
+      or Grafana, pull its traffic back daily, and report what crossed today.
+      Everything else here measures effort. Plan, including why this nearly
+      fails the bar above, in
+      [plans/feature-impact.md](../plans/feature-impact.md).
 - [ ] **Redeploy onto the current build.** Nine builds behind; the live agent
       still inflates review counts.
 - [ ] **Did you do it?** Link a day's `to improve` to the days after it and
